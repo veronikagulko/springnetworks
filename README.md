@@ -7,5 +7,5 @@ Project Plan:
 4. Generate spring lattice structure
 5. Start customizing spring 
 
-05/20 - Generate circles with user clicks
-05/21 - clear screen
+05/20 - Generate circles with user click  
+05/21 - clear screen + overlapping circles not allowed
