@@ -1,6 +1,6 @@
 from vpython import *
 
-#Web VPython 3.2
+# Web VPython 3.2
 
 scene = canvas(
     title="Click to Draw Circles",
@@ -18,28 +18,35 @@ click_surface = box(
     color=color.black
 )
 
-# delete light source
+# delete default light sources
 scene.lights = []
-# custom light source
-my_light = local_light(pos=vector(5, 5, 5), color=color.red)
-my_light = local_light(pos=vector(5, 5, -5), color=color.cyan)
 
-#global variables for the nodes
+# custom light sources
+light1 = local_light(pos=vector(5, 5, 5), color=color.red)
+light2 = local_light(pos=vector(5, 5, -5), color=color.cyan)
+
+# global variables
 radius = 0.5
+neighbors = 2
 
-# button for clear screen
+circles = []
+springs = []
+circle_positions = []
+
 def clear_action(b):
-    for obj in scene.objects:
-        obj.visible = False
-        obj.delete()
+    for circle in circles:
+        circle.visible = False
+        circle.delete()
+
+    for spring in springs:
+        spring.visible = False
+        spring.delete()
+
     circles.clear()
     circle_positions.clear()
-        
-button(bind=clear_action, text="Clear Screen")
+    springs.clear()
 
-# this stores the positions of circles previosuly made and checks if 
-circle_positions = []
-circles = []
+button(bind=clear_action, text="Clear Screen")
 
 def not_overlapping_nodes(new_pos):
     for old_pos in circle_positions:
@@ -47,15 +54,60 @@ def not_overlapping_nodes(new_pos):
             return False
     return True
 
+def spring_generator():
+    # exit function if there are less than 2 circles on the screen
+    if len(circle_positions) < 2:
+        return
+
+    # clear old springs
+    for spring in springs:
+        spring.visible = False
+        spring.delete()
+    springs.clear()
+
+    # use set so we do not duplicate springs
+    spring_pairs = set()
+
+    for i in range(len(circle_positions)):
+        distances_btwn_circles = []
+
+        for j in range(len(circle_positions)):
+            if i != j:
+                distance = mag(circle_positions[i] - circle_positions[j])
+                distances_btwn_circles.append((distance, j))
+
+        distances_btwn_circles.sort()
+
+        for distance, j in distances_btwn_circles[:neighbors]:
+            spring_pairs.add(tuple(sorted((i, j))))
+
+    for i, j in spring_pairs:
+        new_spring = helix(
+            pos=circle_positions[i],
+            axis=circle_positions[j] - circle_positions[i],
+            radius=0.08,
+            thickness=0.03,
+            color=color.yellow
+        )
+
+        springs.append(new_spring)
+
 def draw_circle(evt):
-    click_pos = evt.pos + vec(0, 0, 0.05)
+    click_pos = evt.pos + vec(0, 0, 0.1)
+
     if not_overlapping_nodes(click_pos):
-        new_sphere = sphere(pos=click_pos + vec(0,0, 0.05), radius = radius, color = color.white)
+        new_sphere = sphere(
+            pos=click_pos,
+            radius=radius,
+            color=color.white
+        )
+
         circle_positions.append(click_pos)
         circles.append(new_sphere)
+
+        spring_generator()
+
     else:
         print("Circle overlaps! Not drawing.")
 
-
-    
 scene.bind("mousedown", draw_circle)
