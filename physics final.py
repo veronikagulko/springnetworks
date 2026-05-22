@@ -23,6 +23,10 @@ light2 = local_light(pos=vector(5, 5, -5), color=color.cyan)
 # global variables
 radius = 0.5
 neighbors = 2
+gravity = vec(0, -3, 0)
+dt = 0.01
+damping = 0.995
+
 
 circles = []
 velocities = []
@@ -107,6 +111,8 @@ def draw_circle(evt):
         )
 
         circles.append(new_sphere)
+        velocities.append(vec(0, 0, 0))
+
 
         spring_generator()
 
@@ -115,11 +121,28 @@ def draw_circle(evt):
 
 scene.bind("mousedown", draw_circle)
 
-velocity = vec(0,0,0)
-acceleration = -9.8
-position = (1/2)* acceleration * (clock())**2
 
-for circle in circles:
-    while circle.pos > 0:
-        rate(30)
-        circle.pos = circle.pos + vec(0.5, 0.5, 0) * 0.1
+
+
+def update_springs():
+    for s in range(len(springs)):
+        i, j = spring_pairs[s]
+        springs[s].pos = circles[i].pos
+        springs[s].axis = circles[j].pos - circles[i].pos
+
+while True:
+    rate(60)
+    if len(circles) == 0:
+        continue
+
+    acceleration = []
+    for i in range(len(circles)):
+        acceleration.append(gravity)
+
+    for i in range(len(circles)):
+        velocities[i] = velocities[i] + acceleration[i] * dt
+        velocities[i] = velocities[i] * damping
+
+        circles[i].pos = circles[i].pos + velocities[i] * dt
+
+    update_springs()
