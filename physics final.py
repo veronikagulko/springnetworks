@@ -21,6 +21,7 @@ light1 = local_light(pos=vector(5, 5, 5), color=color.red)
 light2 = local_light(pos=vector(5, 5, -5), color=color.cyan)
 
 # global variables
+run = True
 radius = 0.5
 neighbors = 2
 gravity = vec(0, -3, 0)
@@ -130,7 +131,7 @@ def update_springs():
         springs[s].pos = circles[i].pos
         springs[s].axis = circles[j].pos - circles[i].pos
 
-while True:
+while run:
     rate(60)
     if len(circles) == 0:
         continue
@@ -142,7 +143,9 @@ while True:
     for i in range(len(circles)):
         velocities[i] = velocities[i] + acceleration[i] * dt
         velocities[i] = velocities[i] * damping
-
-        circles[i].pos = circles[i].pos + velocities[i] * dt
+        if circles[i].pos.y < -4:
+            circles[i].pos = circles[i].pos
+        else:
+            circles[i].pos = circles[i].pos + velocities[i] * dt
 
     update_springs()
