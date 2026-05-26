@@ -33,7 +33,6 @@ circles = []
 velocities = []
 circle_positions = []
 
-
 springs = []
 spring_pairs = []
 spring_rest_lengths = []
@@ -62,6 +61,46 @@ def not_overlapping_nodes(new_pos):
             return False
     return True
 
+def spring_generator():
+    # exit function if there are less than 2 circles on the screen
+    if len(circles) < 2:
+        return
+
+    # clear old springs
+    for spring in springs:
+        spring.visible = False
+        spring.delete()
+    springs.clear()
+    spring_pairs.clear()
+    spring_rest_lengths.clear()
+    
+    # use set so we do not duplicate springs
+    springs_pairs = set()
+    
+    for i in range(len(circles)):
+        distances_btwn_circles = []
+
+        for j in range(len(circles)):
+            if i != j:
+                distance = mag(circles[i].pos - circles[j].pos)
+                distances_btwn_circles.append((distance, j))
+
+        distances_btwn_circles.sort()
+
+        for distance, j in distances_btwn_circles[:neighbors]:
+            spring_pairs.append(tuple(sorted((i, j))))
+
+    for i, j in spring_pairs:
+        new_spring = helix(
+            pos=circles[i].pos,
+            axis=circles[j].pos - circles[i].pos,
+            radius=0.08,
+            thickness=0.03,
+            color=color.yellow
+        )
+
+        springs.append(new_spring)
+
 def draw_circle(evt):
     click_pos = evt.pos + vec(0, 0, 0.1)
 
@@ -76,11 +115,21 @@ def draw_circle(evt):
         velocities.append(vec(0, 0, 0))
 
 
+        spring_generator()
 
     else:
         print("Circle overlaps! Not drawing.")
 
 scene.bind("mousedown", draw_circle)
+
+
+
+
+def update_springs():
+    for s in range(len(springs)):
+        i, j = spring_pairs[s]
+        springs[s].pos = circles[i].pos
+        springs[s].axis = circles[j].pos - circles[i].pos
 
 while run:
     rate(60)
@@ -98,3 +147,5 @@ while run:
             circles[i].pos = circles[i].pos
         else:
             circles[i].pos = circles[i].pos + velocities[i] * dt
+
+    update_springs()
