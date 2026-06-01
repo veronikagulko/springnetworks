@@ -428,6 +428,45 @@ while True:
             circles[i].pos.x = WALL_X - r
             velocities[i].x = -abs(velocities[i].x) * COR
 
+    # Node-to-node collision handling
+    for a in range(len(circles)):
+        for b in range(a + 1, len(circles)):
+            delta = circles[b].pos - circles[a].pos
+            dist = mag(delta)
+            min_dist = circles[a].radius + circles[b].radius
+
+            if dist < 1e-9:
+                delta = vec(1, 0, 0)
+                dist = 1
+
+            if dist < min_dist:
+                n = norm(delta)
+                overlap = min_dist - dist
+
+                if fixed_nodes[a] and fixed_nodes[b]:
+                    continue
+
+                if fixed_nodes[a]:
+                    circles[b].pos = circles[b].pos + n * overlap
+                elif fixed_nodes[b]:
+                    circles[a].pos = circles[a].pos - n * overlap
+                else:
+                    circles[a].pos = circles[a].pos - n * (overlap / 2)
+                    circles[b].pos = circles[b].pos + n * (overlap / 2)
+
+                rel_vel = velocities[b] - velocities[a]
+                speed = dot(rel_vel, n)
+
+                if speed < 0:
+                    impulse = -(1 + COR) * speed
+                    impulse = impulse / ((1 / masses[a]) + (1 / masses[b]))
+
+                    if not fixed_nodes[a]:
+                        velocities[a] = velocities[a] - n * impulse / masses[a]
+
+                    if not fixed_nodes[b]:
+                        velocities[b] = velocities[b] + n * impulse / masses[b]
+
     for s_idx in range(len(springs)):
         i = spring_pairs[s_idx][0]
         j = spring_pairs[s_idx][1]
