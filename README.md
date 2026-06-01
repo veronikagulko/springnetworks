@@ -5,10 +5,14 @@ Project Plan:
 2. Make circles distinct objects ✅
 3. Store nodes in array ✅
 4. Generate spring lattice structure ✅
-5. Start customizing spring 
+5. Start customizing spring ✅
 6. Gravity animation ✅
-7. Helix animation to be stretchy
-8. Potentially include drag / air friction??
+7. Helix animation to be stretchy ✅
+8. Potentially include drag / air friction?? ✅
+9. Elastic Collisions between Nodes and Helixes
+10. Elastic Collisions between Nodes
+11. Elastic collisions between Helixes
+12. 3D node creation / spring creation
 
 05/20 - Generate circles with user click  
 05/21 - clear screen + overlapping circles not allowed
