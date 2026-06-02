@@ -467,6 +467,60 @@ while True:
                     if not fixed_nodes[b]:
                         velocities[b] = velocities[b] + n * impulse / masses[b]
 
+    # Node-to-spring collision handling
+    spring_clearance = 0.10
+
+    for n in range(len(circles)):
+        if fixed_nodes[n]:
+            continue
+
+        p = circles[n].pos
+        node_r = circles[n].radius
+
+        for s_idx in range(len(spring_pairs)):
+            a_idx = spring_pairs[s_idx][0]
+            b_idx = spring_pairs[s_idx][1]
+
+            if n == a_idx or n == b_idx:
+                continue
+
+            a = circles[a_idx].pos
+            b = circles[b_idx].pos
+            ab = b - a
+            ab_len2 = dot(ab, ab)
+
+            if ab_len2 < 1e-9:
+                continue
+
+            t = dot(p - a, ab) / ab_len2
+
+            if t < 0:
+                t = 0
+            if t > 1:
+                t = 1
+
+            closest = a + ab * t
+            delta = p - closest
+            dist = mag(delta)
+
+            min_dist = node_r + spring_clearance
+
+            if dist < 1e-9:
+                spring_dir = norm(ab)
+                delta = vec(-spring_dir.y, spring_dir.x, 0)
+                dist = 1
+
+            if dist < min_dist:
+                push_dir = norm(delta)
+                overlap = min_dist - dist
+
+                circles[n].pos = circles[n].pos + push_dir * overlap
+
+                speed_toward_spring = dot(velocities[n], push_dir)
+
+                if speed_toward_spring < 0:
+                    velocities[n] = velocities[n] - (1 + COR) * speed_toward_spring * push_dir
+
     for s_idx in range(len(springs)):
         i = spring_pairs[s_idx][0]
         j = spring_pairs[s_idx][1]
