@@ -1,4 +1,5 @@
 from vpython import *
+#Web VPython 3.2
 
 scene = canvas(
     title="Spring Network",
@@ -6,11 +7,10 @@ scene = canvas(
     height=600,
     background=color.black
 )
-
-scene.userzoom = False
-scene.range = 5
+scene.userzoom = True
+scene.userspin = True
+scene.range = 6
 scene.center = vec(0, 0, 0)
-scene.lights = []
 
 local_light(pos=vector(5, 5, 5), color=color.red)
 local_light(pos=vector(5, 5, -5), color=color.cyan)
@@ -28,10 +28,34 @@ BASE_RADIUS = 0.35
 FLOOR_Y = -4.6
 WALL_X = 4.6
 CEIL_Y = 4.6
+SPRING_CLEARANCE = 0.10
+SPRING_Z = 0.5
+SPRING_Z = 0.5
+SPRING_CLEARANCE = 0.18
+WALL_Z = 4.6
+place_z = 0
 
-SPRING_POINTS = 36
-SPRING_COILS = 8
-SPRING_AMP = 0.12
+def make_spring_visual(i, j):
+    a = circles[i].pos
+    b = circles[j].pos
+
+    return helix(
+        pos=a,
+        axis=b - a,
+        radius=0.12,
+        thickness=0.035,
+        color=color.yellow
+    )
+
+def update_spring_visual(spring_obj, i, j):
+    a = circles[i].pos
+    b = circles[j].pos
+
+    spring_obj.pos = a
+    spring_obj.axis = b - a
+    
+def hide_spring_visual(spring_obj):
+    spring_obj.visible = False
 
 circles = []
 velocities = []
@@ -62,112 +86,59 @@ def refresh_colors():
 def visual_radius(m):
     return BASE_RADIUS * pow(m / default_mass, 1.0 / 3.0)
 
-def pair_seen(seen, a, b):
-    key = str(a) + "-" + str(b)
-
-    for i in range(len(seen)):
-        if seen[i] == key:
+def pair_exists(a, b):
+    for p in range(len(spring_pairs)):
+        if spring_pairs[p][0] == a and spring_pairs[p][1] == b:
             return True
-
-    seen.append(key)
     return False
 
-def sort_distances(dists):
-    for i in range(len(dists)):
-        for j in range(0, len(dists) - 1):
-            if dists[j][0] > dists[j + 1][0]:
-                temp = dists[j]
-                dists[j] = dists[j + 1]
-                dists[j + 1] = temp
+def make_spring_visual(i, j):
+    a = circles[i].pos
+    b = circles[j].pos
 
-def spring_points(a, b):
-    pts = []
-    delta = b - a
-    L = mag(delta)
+    return cylinder(
+        pos=vec(a.x, a.y, SPRING_Z),
+        axis=vec(b.x - a.x, b.y - a.y, 0),
+        radius=0.055,
+        color=color.green,
+        emissive=True
+    )
 
-    if L < 1e-9:
-        for q in range(SPRING_POINTS):
-            pts.append(a)
-        return pts
+def update_spring_visual(spring_obj, i, j):
+    a = circles[i].pos
+    b = circles[j].pos
 
-    direction = norm(delta)
-    side = vec(-direction.y, direction.x, 0)
+    spring_obj.pos = vec(a.x, a.y, SPRING_Z)
+    spring_obj.axis = vec(b.x - a.x, b.y - a.y, 0)
 
-    for q in range(SPRING_POINTS):
-        t = q / (SPRING_POINTS - 1)
-        center = a + delta * t
-
-        end_fade = sin(pi * t)
-        wiggle = sin(2 * pi * SPRING_COILS * t)
-        offset = side * SPRING_AMP * wiggle * end_fade
-
-        pts.append(center + offset)
-
-    return pts
-
-def update_spring_visual(spring_obj, a, b):
-    pts = spring_points(a, b)
-
-    for q in range(SPRING_POINTS):
-        spring_obj.modify(q, pos=pts[q])
+def hide_spring_visual(spring_obj):
+    spring_obj.visible = False
 
 def rebuild_springs():
     global springs, spring_pairs, spring_rest_lengths
 
     for s in springs:
-        s.visible = False
+        hide_spring_visual(s)
 
     springs = []
     spring_pairs = []
     spring_rest_lengths = []
 
     if len(circles) < 2:
+        spring_count_label.text = "  Springs = 0  "
         return
 
-    seen = []
-
     for i in range(len(circles)):
-        dists = []
+        made = 0
 
-        for j in range(len(circles)):
-            if j != i:
-                distance = mag(circles[i].pos - circles[j].pos)
-                dists.append([distance, j])
+        for j in range(i + 1, len(circles)):
+            if made < int(neighbors):
+                spring_pairs.append([i, j])
+                spring_rest_lengths.append(mag(circles[i].pos - circles[j].pos))
+                springs.append(make_spring_visual(i, j))
+                made = made + 1
 
-        sort_distances(dists)
-
-        max_neighbors = int(neighbors)
-
-        if max_neighbors > len(dists):
-            max_neighbors = len(dists)
-
-        for n in range(max_neighbors):
-            j2 = dists[n][1]
-            a = i
-            b = j2
-
-            if b < a:
-                temp = a
-                a = b
-                b = temp
-
-            if not pair_seen(seen, a, b):
-                spring_pairs.append([a, b])
-
-    for p in range(len(spring_pairs)):
-        i = spring_pairs[p][0]
-        j = spring_pairs[p][1]
-        L0 = mag(circles[i].pos - circles[j].pos)
-
-        spring_rest_lengths.append(L0)
-
-        springs.append(
-            curve(
-                pos=spring_points(circles[i].pos, circles[j].pos),
-                radius=0.025,
-                color=color.yellow
-            )
-        )
+    spring_count_label.text = "  Springs = " + str(len(springs)) + "  "
 
 def select_node(i):
     selected_idx[0] = i
@@ -201,6 +172,7 @@ def toggle_gravity(b):
 button(bind=toggle_gravity, text="Start Gravity")
 scene.append_to_caption("   ")
 
+
 g_label = wtext(text="  g = " + str(round(g_strength, 1)) + " m/s^2  ")
 
 def set_g(s):
@@ -210,6 +182,17 @@ def set_g(s):
     g_label.text = "  g = " + str(round(g_strength, 1)) + " m/s^2  "
 
 slider(bind=set_g, min=0.5, max=25.0, value=g_strength, length=190)
+
+scene.append_to_caption("\n\n")
+
+z_label = wtext(text="Placement z = " + str(round(place_z, 1)) + "  ")
+
+def set_place_z(s):
+    global place_z
+    place_z = s.value
+    z_label.text = "Placement z = " + str(round(place_z, 1)) + "  "
+
+slider(bind=set_place_z, min=-4.0, max=4.0, value=place_z, length=190)
 
 scene.append_to_caption("\n\n")
 
@@ -226,6 +209,7 @@ slider(bind=set_k, min=0.5, max=60.0, value=k_spring, length=190)
 scene.append_to_caption("\n\n")
 
 nb_label = wtext(text="Neighbors = " + str(int(neighbors)) + "  ")
+spring_count_label = wtext(text="  Springs = 0  ")
 
 def set_neighbors(s):
     global neighbors
@@ -297,7 +281,7 @@ def clear_all(b):
         circles[i].visible = False
 
     for j in range(len(springs)):
-        springs[j].visible = False
+        hide_spring_visual(springs[j])
 
     circles = []
     velocities = []
@@ -307,6 +291,7 @@ def clear_all(b):
     spring_pairs = []
     spring_rest_lengths = []
 
+    spring_count_label.text = "  Springs = 0  "
     deselect()
 
 button(bind=toggle_anchor, text="Toggle Anchor")
@@ -325,29 +310,21 @@ wtext(
 )
 
 def on_click(evt):
+    picked = scene.mouse.pick
+
+    if picked != None:
+        for i in range(len(circles)):
+            if picked == circles[i]:
+                select_node(i)
+                return
+
     click_pos = evt.pos
-    hit_idx = None
+    pos = vec(click_pos.x, click_pos.y, place_z)
 
-    for i in range(len(circles)):
-        dx = click_pos.x - circles[i].pos.x
-        dy = click_pos.y - circles[i].pos.y
-        distance_2d = sqrt(dx * dx + dy * dy)
-
-        if distance_2d < circles[i].radius * 1.5:
-            hit_idx = i
-            break
-
-    if hit_idx != None:
-        select_node(hit_idx)
-        return
-
-    pos = vec(click_pos.x, click_pos.y, 0)
     overlaps = False
 
     for k in range(len(circles)):
-        test_pos = vec(pos.x, pos.y, 0)
-        circle_pos = vec(circles[k].pos.x, circles[k].pos.y, 0)
-        dist = mag(test_pos - circle_pos)
+        dist = mag(pos - circles[k].pos)
 
         if dist < circles[k].radius + BASE_RADIUS:
             overlaps = True
@@ -355,16 +332,22 @@ def on_click(evt):
     if not overlaps:
         m = default_mass
 
-        circles.append(sphere(pos=pos, radius=visual_radius(m), color=COL_FREE))
+        circles.append(
+            sphere(
+                pos=pos,
+                radius=visual_radius(m),
+                color=COL_FREE
+            )
+        )
+
         velocities.append(vec(0, 0, 0))
         masses.append(m)
         fixed_nodes.append(False)
 
         rebuild_springs()
         select_node(len(circles) - 1)
-
+        
 scene.bind("mousedown", on_click)
-
 while True:
     rate(120)
 
@@ -386,7 +369,6 @@ while True:
         j = spring_pairs[s_idx][1]
 
         L0 = spring_rest_lengths[s_idx]
-
         delta = circles[j].pos - circles[i].pos
         dist = mag(delta)
 
@@ -427,8 +409,16 @@ while True:
         if circles[i].pos.x + r > WALL_X:
             circles[i].pos.x = WALL_X - r
             velocities[i].x = -abs(velocities[i].x) * COR
+        
+        if circles[i].pos.z - r < -WALL_Z:
+            circles[i].pos.z = -WALL_Z + r
+            velocities[i].z = abs(velocities[i].z) * COR
 
-    # Node-to-node collision handling
+        if circles[i].pos.z + r > WALL_Z:
+            circles[i].pos.z = WALL_Z - r
+            velocities[i].z = -abs(velocities[i].z) * COR
+
+    # Elastic collisions between nodes
     for a in range(len(circles)):
         for b in range(a + 1, len(circles)):
             delta = circles[b].pos - circles[a].pos
@@ -467,9 +457,7 @@ while True:
                     if not fixed_nodes[b]:
                         velocities[b] = velocities[b] + n * impulse / masses[b]
 
-    # Node-to-spring collision handling
-    spring_clearance = 0.10
-
+    # Collisions between nodes and helix centerlines
     for n in range(len(circles)):
         if fixed_nodes[n]:
             continue
@@ -503,7 +491,7 @@ while True:
             delta = p - closest
             dist = mag(delta)
 
-            min_dist = node_r + spring_clearance
+            min_dist = node_r + SPRING_CLEARANCE
 
             if dist < 1e-9:
                 spring_dir = norm(ab)
@@ -516,13 +504,13 @@ while True:
 
                 circles[n].pos = circles[n].pos + push_dir * overlap
 
-                speed_toward_spring = dot(velocities[n], push_dir)
+                speed_toward_helix = dot(velocities[n], push_dir)
 
-                if speed_toward_spring < 0:
-                    velocities[n] = velocities[n] - (1 + COR) * speed_toward_spring * push_dir
+                if speed_toward_helix < 0:
+                    velocities[n] = velocities[n] - (1 + COR) * speed_toward_helix * push_dir
 
     for s_idx in range(len(springs)):
         i = spring_pairs[s_idx][0]
         j = spring_pairs[s_idx][1]
 
-        update_spring_visual(springs[s_idx], circles[i].pos, circles[j].pos)
+        update_spring_visual(springs[s_idx], i, j)
