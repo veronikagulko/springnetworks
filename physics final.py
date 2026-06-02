@@ -7,7 +7,7 @@ scene = canvas(
     height=600,
     background=color.black
 )
-scene.userzoom = True
+scene.userzoom = False
 scene.userspin = True
 scene.range = 6
 scene.center = vec(0, 0, 0)
@@ -28,12 +28,14 @@ BASE_RADIUS = 0.35
 FLOOR_Y = -4.6
 WALL_X = 4.6
 CEIL_Y = 4.6
-SPRING_CLEARANCE = 0.10
-SPRING_Z = 0.5
-SPRING_Z = 0.5
-SPRING_CLEARANCE = 0.18
+SPRING_CLEARANCE = 0.05
+SPRING_Z = 0
 WALL_Z = 4.6
 place_z = 0
+
+time = 0
+energy_counter = 0
+ENERGY_PLOT_EVERY = 5
 
 def make_spring_visual(i, j):
     a = circles[i].pos
@@ -346,7 +348,47 @@ def on_click(evt):
 
         rebuild_springs()
         select_node(len(circles) - 1)
-        
+
+energy_graph = graph(
+    title="Energy",
+    xtitle="time (s)",
+    ytitle="energy (J)",
+    width=800,
+    height=250,
+    fast=False
+)
+
+kinetic_curve = gcurve(graph=energy_graph, color=color.cyan, label="Kinetic")
+potential_curve = gcurve(graph=energy_graph, color=color.orange, label="Potential")
+total_curve = gcurve(graph=energy_graph, color=color.green, label="Total mechanical")
+
+
+def compute_energies():
+    kinetic = 0
+    spring_potential = 0
+    gravity_potential = 0
+
+    for i in range(len(circles)):
+        kinetic = kinetic + 0.5 * masses[i] * mag2(velocities[i])
+
+        if gravity_on:
+            gravity_potential = gravity_potential + masses[i] * g_strength * (circles[i].pos.y - FLOOR_Y)
+
+    for s_idx in range(len(spring_pairs)):
+        i = spring_pairs[s_idx][0]
+        j = spring_pairs[s_idx][1]
+
+        L0 = spring_rest_lengths[s_idx]
+        dist = mag(circles[j].pos - circles[i].pos)
+
+        spring_potential = spring_potential + 0.5 * k_spring * pow(dist - L0, 2)
+
+    potential = spring_potential + gravity_potential
+    total = kinetic + potential
+
+    return [kinetic, potential, total]
+
+
 scene.bind("mousedown", on_click)
 while True:
     rate(120)
@@ -514,3 +556,16 @@ while True:
         j = spring_pairs[s_idx][1]
 
         update_spring_visual(springs[s_idx], i, j)
+        
+    time = time + dt
+    energy_counter = energy_counter + 1
+
+    if energy_counter >= ENERGY_PLOT_EVERY:
+        energy_counter = 0
+
+        energies = compute_energies()
+        kinetic_curve.plot(time, energies[0])
+        potential_curve.plot(time, energies[1])
+        total_curve.plot(time, energies[2])
+
+
