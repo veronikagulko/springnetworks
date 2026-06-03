@@ -13,7 +13,7 @@ Project Plan:
 10. Elastic Collisions between Nodes ✅
 11. Elastic collisions between Helixes ✅
 12. 3D node creation / spring creation - To Be Done
-13. Kinetic, Potential, Gravitational, Total Mechanical Energy graphs
+13. Kinetic, Potential, Gravitational, Total Mechanical Energy graphs ✅
 14. Free body diagram for individual nodes with Force Vectors
 15. Reset Button
 
@@ -21,6 +21,11 @@ Project Plan:
 05/21 - clear screen + overlapping circles not allowed
 05/22 - helix generation added
 05/26 - gravity added into simulation
+... lost track here
+06/02 - elastic collisions between nodes + helixes
+        graphs of energies added
+06/03 - free body diagrams
+
 
 current issues:
-need to remove all instances of tuples because glowscript cannot read them.
+need to get this code to run on glowscript
