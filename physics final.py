@@ -1,10 +1,11 @@
-from vpython import *
+Web VPython 3.2
+#from vpython import *
 
 scene = canvas(
     title="Spring Network Simulation",
     width=1000,
     height=560,
-    background=color.black
+    background=color.white
 )
 
 scene.userzoom = False
@@ -326,6 +327,7 @@ def clear_all(b):
     global spring_force_arrows_a, spring_force_arrows_b
     global last_gravity_forces, last_normal_forces, last_spring_forces
     global time, energy_counter
+    global kinetic_curve, potential_curve, total_curve
 
     for i in range(len(circles)):
         circles[i].visible = False
@@ -363,6 +365,9 @@ def clear_all(b):
     last_normal_forces = []
     last_spring_forces = []
 
+    selected_idx[0] = None
+    drag_idx[0] = None
+
     time = 0
     energy_counter = 0
 
@@ -370,8 +375,25 @@ def clear_all(b):
     potential_curve.delete()
     total_curve.delete()
 
+    kinetic_curve = gcurve(graph=energy_graph, color=color.cyan, label="Kinetic")
+    potential_curve = gcurve(graph=energy_graph, color=color.orange, label="Potential")
+    total_curve = gcurve(graph=energy_graph, color=color.green, label="Total")
+
     spring_count_label.text = "Springs = 0"
-    deselect()
+    sel_label.text = "Click a node to see controls"
+    mass_slider.value = default_mass
+
+    sel_g_arrow.visible = False
+    sel_s_arrow.visible = False
+    sel_n_arrow.visible = False
+    sel_total_arrow.visible = False
+
+    sel_g_label.text = ""
+    sel_s_label.text = ""
+    sel_n_label.text = ""
+    sel_total_label.text = ""
+
+    refresh_colors()
 
 button(bind=clear_all, text="Clear Screen")
 
