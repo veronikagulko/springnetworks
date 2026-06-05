@@ -17,7 +17,7 @@ Project Plan:
 14. Free body diagram for individual nodes with Force Vectors ✅
 15. Reset Button ✅
 16. Redo Layout to put all UI on the right side of canvas
-17. Change colorings
+17. Change colorings ✅
 18. Graph to begin when gravity is activated 
 
 05/20 - Generate circles with user click  
