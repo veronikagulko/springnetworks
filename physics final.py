@@ -1,5 +1,4 @@
-Web VPython 3.2
-#from vpython import *
+from vpython import *
 
 scene = canvas(
     title="Spring Network Simulation",
@@ -14,8 +13,8 @@ scene.range = 6
 scene.center = vec(0, 0, 0)
 scene.lights = []
 
-local_light(pos=vector(5, 5, 5), color=color.red)
-local_light(pos=vector(5, 5, -5), color=color.cyan)
+local_light(pos=vector(5, 5, 5), color=color.white)
+local_light(pos=vector(5, 5, -5), color=color.white)
 
 dt = 0.005
 time = 0
@@ -47,14 +46,14 @@ SELECT_FORCE_SCALE = 0.28
 MAX_FORCE_ARROW = 3.0
 MAX_SELECT_ARROW = 3.5
 
-COL_FREE = color.white
+COL_FREE = color.black
 COL_FIXED = vector(1, 0.35, 0.1)
-COL_SELECTED = color.cyan
+COL_SELECTED = color.red
 
-COL_GRAV = color.green
-COL_SPRING = vector(1, 0.25, 0.7)
-COL_NORMAL = color.cyan
-COL_TOTAL = color.blue
+COL_GRAV = color.red
+COL_SPRING = color.black
+COL_NORMAL = color.blue
+COL_TOTAL = color.green
 
 circles = []
 velocities = []
@@ -375,9 +374,9 @@ def clear_all(b):
     potential_curve.delete()
     total_curve.delete()
 
-    kinetic_curve = gcurve(graph=energy_graph, color=color.cyan, label="Kinetic")
-    potential_curve = gcurve(graph=energy_graph, color=color.orange, label="Potential")
-    total_curve = gcurve(graph=energy_graph, color=color.green, label="Total")
+    kinetic_curve = gcurve(graph=energy_graph, color=color.red, label="Kinetic")
+    potential_curve = gcurve(graph=energy_graph, color=color.blue, label="Potential")
+    total_curve = gcurve(graph=energy_graph, color=color.black, label="Total")
 
     spring_count_label.text = "Springs = 0"
     sel_label.text = "Click a node to see controls"
@@ -560,9 +559,9 @@ energy_graph = graph(
     fast=False
 )
 
-kinetic_curve = gcurve(graph=energy_graph, color=color.cyan, label="Kinetic")
-potential_curve = gcurve(graph=energy_graph, color=color.orange, label="Potential")
-total_curve = gcurve(graph=energy_graph, color=color.green, label="Total")
+kinetic_curve = gcurve(graph=energy_graph, color=color.red, label="Kinetic")
+potential_curve = gcurve(graph=energy_graph, color=color.blue, label="Potential")
+total_curve = gcurve(graph=energy_graph, color=color.black, label="Total")
 
 def on_mousedown(evt):
     global dragging
