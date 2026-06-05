@@ -14,8 +14,11 @@ Project Plan:
 11. Elastic collisions between Helixes ✅
 12. 3D node creation / spring creation - To Be Done
 13. Kinetic, Potential, Gravitational, Total Mechanical Energy graphs ✅
-14. Free body diagram for individual nodes with Force Vectors
-15. Reset Button
+14. Free body diagram for individual nodes with Force Vectors ✅
+15. Reset Button ✅
+16. Redo Layout to put all UI on the right side of canvas
+17. Change colorings
+18. Graph to begin when gravity is activated 
 
 05/20 - Generate circles with user click  
 05/21 - clear screen + overlapping circles not allowed
@@ -25,7 +28,8 @@ Project Plan:
 06/02 - elastic collisions between nodes + helixes
         graphs of energies added
 06/03 - free body diagrams
-
+Weekend Work - Free Body Diagrams for Vectors
+06/05 - Reset button for graphs
 
 current issues:
 need to get this code to run on glowscript
