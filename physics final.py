@@ -1,4 +1,4 @@
-from vpython import *
+Web VPython 3.2
 
 scene = canvas(
     title="Spring Network Simulation",
@@ -21,6 +21,7 @@ time = 0
 energy_counter = 0
 # what does this do??
 ENERGY_PLOT_EVERY = 2
+simulation_running = False
 
 gravity_on = False
 show_vectors = True
@@ -287,12 +288,26 @@ scene.append_to_caption("\n\nANIMATION CONTROLS\n")
 scene.append_to_caption("\n")
 
 def toggle_gravity(b):
-    global gravity_on
+    global gravity_on, simulation_running
+    global time, energy_counter
+    global kinetic_curve, potential_curve, total_curve
 
     gravity_on = not gravity_on
+    simulation_running = gravity_on
 
     if gravity_on:
         b.text = "Pause Gravity"
+
+        time = 0
+        energy_counter = 0
+
+        kinetic_curve.delete()
+        potential_curve.delete()
+        total_curve.delete()
+
+        kinetic_curve = gcurve(graph=energy_graph, color=color.cyan, label="Kinetic")
+        potential_curve = gcurve(graph=energy_graph, color=color.orange, label="Potential")
+        total_curve = gcurve(graph=energy_graph, color=color.green, label="Total")
     else:
         b.text = "Begin Gravity"
 
@@ -632,6 +647,17 @@ while True:
     rate(120)
 
     if len(circles) == 0:
+        update_selected_force_view()
+        continue
+    if not simulation_running:
+        for s_idx in range(len(springs)):
+            i = spring_pairs[s_idx][0]
+            j = spring_pairs[s_idx][1]
+            update_spring_visual(springs[s_idx], i, j)
+
+        for i in range(len(circles)):
+            velocities[i] = vec(0, 0, 0)
+
         update_selected_force_view()
         continue
 
