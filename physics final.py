@@ -2,9 +2,10 @@ Web VPython 3.2
 
 scene = canvas(
     title="Spring Network Simulation",
-    width=1000,
+    width=760,
     height=560,
-    background=color.white
+    background=color.white,
+    align="left"
 )
 
 scene.userzoom = False
@@ -19,10 +20,12 @@ local_light(pos=vector(5, 5, -5), color=color.white)
 dt = 0.005
 time = 0
 energy_counter = 0
-# what does this do??
-ENERGY_PLOT_EVERY = 2
-simulation_running = False
 
+# Plot energy every 2 animation frames instead of every frame.
+# This keeps the graph smoother/faster without changing the physics.
+ENERGY_PLOT_EVERY = 2
+
+simulation_running = False
 gravity_on = False
 show_vectors = True
 
@@ -77,9 +80,6 @@ last_spring_forces = []
 selected_idx = [None]
 dragging = False
 drag_idx = [None]
-
-
-
 
 def node_color(i):
     if selected_idx[0] == i:
@@ -229,12 +229,13 @@ def compute_energies():
 
     return [kinetic, potential, total]
 
-scene.append_to_caption("\n\nNODE CONTROLS\n")
-scene.append_to_caption("\n")
+scene.append_to_caption("<b>NODE CONTROLS</b><br><br>")
 
-sel_label = wtext(text="Click a node to see controls")
-scene.append_to_caption("\n\n")
+scene.append_to_caption("   ")
+sel_label = wtext(text="No node selected")
+scene.append_to_caption("<br><br>")
 
+scene.append_to_caption("   ")
 wtext(text="Node mass: ")
 
 def set_sel_mass(s):
@@ -249,9 +250,10 @@ def set_sel_mass(s):
 
         sel_label.text = "Node " + str(i) + status + " - mass: " + str(round(s.value, 2)) + " kg"
 
-mass_slider = slider(bind=set_sel_mass, min=0.1, max=20.0, value=default_mass, length=250)
+scene.append_to_caption("   ")
+mass_slider = slider(bind=set_sel_mass, min=0.1, max=20.0, value=default_mass, length=210)
 
-scene.append_to_caption("\n\n")
+scene.append_to_caption("<br><br>")
 
 def select_node(i):
     selected_idx[0] = i
@@ -282,10 +284,9 @@ def toggle_anchor(b):
 
     select_node(i)
 
+scene.append_to_caption("   ")
 button(bind=toggle_anchor, text="Stationary On/Off")
-
-scene.append_to_caption("\n\nANIMATION CONTROLS\n")
-scene.append_to_caption("\n")
+scene.append_to_caption("<br><br><b>   ANIMATION CONTROLS</b><br><br>")
 
 def toggle_gravity(b):
     global gravity_on, simulation_running
@@ -305,12 +306,13 @@ def toggle_gravity(b):
         potential_curve.delete()
         total_curve.delete()
 
-        kinetic_curve = gcurve(graph=energy_graph, color=color.cyan, label="Kinetic")
-        potential_curve = gcurve(graph=energy_graph, color=color.orange, label="Potential")
-        total_curve = gcurve(graph=energy_graph, color=color.green, label="Total")
+        kinetic_curve = gcurve(graph=energy_graph, color=color.red, label="Kinetic")
+        potential_curve = gcurve(graph=energy_graph, color=color.blue, label="Potential")
+        total_curve = gcurve(graph=energy_graph, color=color.black, label="Total")
     else:
         b.text = "Begin Gravity"
 
+scene.append_to_caption("   ")
 button(bind=toggle_gravity, text="Begin Gravity")
 scene.append_to_caption("   ")
 
@@ -342,6 +344,7 @@ def clear_all(b):
     global last_gravity_forces, last_normal_forces, last_spring_forces
     global time, energy_counter
     global kinetic_curve, potential_curve, total_curve
+    global gravity_on, simulation_running
 
     for i in range(len(circles)):
         circles[i].visible = False
@@ -384,6 +387,8 @@ def clear_all(b):
 
     time = 0
     energy_counter = 0
+    gravity_on = False
+    simulation_running = False
 
     kinetic_curve.delete()
     potential_curve.delete()
@@ -409,65 +414,67 @@ def clear_all(b):
 
     refresh_colors()
 
+scene.append_to_caption("   ")
 button(bind=clear_all, text="Clear Screen")
 
-scene.append_to_caption("\n\nSPRING CONTROLS\n")
-scene.append_to_caption("\n")
+scene.append_to_caption("<br><br><b>   SPRING CONTROLS</b><br><br>")
 
-k_label = wtext(text="Spring k = " + str(round(k_spring, 1)) + " N/m  ")
+k_label = wtext(text="   Spring k = " + str(round(k_spring, 1)) + " N/m  ")
 
 def set_k(s):
     global k_spring
 
     k_spring = s.value
-    k_label.text = "Spring k = " + str(round(k_spring, 1)) + " N/m  "
+    k_label.text = "   Spring k = " + str(round(k_spring, 1)) + " N/m  "
 
-slider(bind=set_k, min=0.5, max=60.0, value=k_spring, length=250)
+scene.append_to_caption("   ")
+slider(bind=set_k, min=0.5, max=60.0, value=k_spring, length=210)
 
-scene.append_to_caption("\n\n")
+scene.append_to_caption("<br><br>")
 
-nb_label = wtext(text="Neighbors = " + str(int(neighbors)) + "  ")
-spring_count_label = wtext(text="Springs = 0  ")
+nb_label = wtext(text="   Neighbors = " + str(int(neighbors)) + "  ")
+spring_count_label = wtext(text="   Springs = 0  ")
 
 def set_neighbors(s):
     global neighbors
 
     neighbors = int(s.value)
-    nb_label.text = "Neighbors = " + str(neighbors) + "  "
+    nb_label.text = "   Neighbors = " + str(neighbors) + "  "
     rebuild_springs()
 
-slider(bind=set_neighbors, min=1, max=6, value=neighbors, length=250)
+scene.append_to_caption("   ")
+slider(bind=set_neighbors, min=1, max=6, value=neighbors, length=210)
 
-scene.append_to_caption("\n\n")
+scene.append_to_caption("<br><br>")
 
-damp_label = wtext(text="Damping = " + str(round(damping, 4)) + "  ")
+damp_label = wtext(text="   Damping = " + str(round(damping, 4)) + "  ")
 
 def set_damping(s):
     global damping
 
     damping = s.value
-    damp_label.text = "Damping = " + str(round(damping, 4)) + "  "
+    damp_label.text = "   Damping = " + str(round(damping, 4)) + "  "
 
-slider(bind=set_damping, min=0.980, max=1.000, value=damping, length=250)
+scene.append_to_caption("   ")
+slider(bind=set_damping, min=0.980, max=1.000, value=damping, length=210)
 
-scene.append_to_caption("\n\n3D PLACEMENT\n")
-scene.append_to_caption("\n")
+scene.append_to_caption("<br><br><b>   3D PLACEMENT</b><br><br>")
 
-z_label = wtext(text="Placement z = " + str(round(place_z, 1)) + "  ")
+z_label = wtext(text="   Placement z = " + str(round(place_z, 1)) + "  ")
 
 def set_place_z(s):
     global place_z
 
     place_z = s.value
-    z_label.text = "Placement z = " + str(round(place_z, 1)) + "  "
+    z_label.text = "   Placement z = " + str(round(place_z, 1)) + "  "
 
-slider(bind=set_place_z, min=-4.0, max=4.0, value=place_z, length=250)
+slider(bind=set_place_z, min=-4.0, max=4.0, value=place_z, length=210)
 
-scene.append_to_caption("\n\nPLANET GRAVITY\n")
-scene.append_to_caption("\n")
+scene.append_to_caption("<br><br><b>   PLANET GRAVITY</b><br><br>")
 
+scene.append_to_caption("   ")
 g_label = wtext(text="g = " + str(round(g_strength, 1)) + " m/s^2  ")
-scene.append_to_caption("\n")
+scene.append_to_caption("<br>")
 
 def set_mars(b):
     global g_strength
@@ -484,26 +491,24 @@ def set_jupiter(b):
     g_strength = 24.8
     g_label.text = "g = " + str(round(g_strength, 1)) + " m/s^2  "
 
+scene.append_to_caption("   ")
 button(bind=set_mars, text="Mars")
 scene.append_to_caption("   ")
 button(bind=set_earth, text="Earth")
 scene.append_to_caption("   ")
 button(bind=set_jupiter, text="Jupiter")
 
-scene.append_to_caption("\n\nINSTRUCTIONS\n")
-scene.append_to_caption("\n")
-wtext(text="Click empty space to place a node. Click and drag a node to move it. Rotate the scene with the mouse.\n")
-
-scene.append_to_caption("\n\n")
+scene.append_to_caption("<br><br><b></b><br><br>")
+scene.append_to_caption("<br><br>")
 
 force_scene = canvas(
-    title="Selected Node Force View",
-    width=1000,
+    width=500,
     height=300,
-    background=color.white
+    background=color.white,
+    align="left"
 )
 
-force_scene.range = 5
+force_scene.range = 6
 force_scene.center = vec(0, 0, 0)
 force_scene.userzoom = False
 force_scene.userspin = False
@@ -520,10 +525,10 @@ sel_s_arrow = arrow(canvas=force_scene, pos=vec(0, 0.7, 0), axis=vec(0, 0, 0), c
 sel_n_arrow = arrow(canvas=force_scene, pos=vec(0, 0.7, 0), axis=vec(0, 0, 0), color=COL_NORMAL, shaftwidth=0.14)
 sel_total_arrow = arrow(canvas=force_scene, pos=vec(0, 0.7, 0), axis=vec(0, 0, 0), color=COL_TOTAL, shaftwidth=0.16)
 
-sel_g_label = label(canvas=force_scene, pos=vec(-4.2, -4.2, 0), text="", box=False, color=COL_GRAV)
-sel_s_label = label(canvas=force_scene, pos=vec(-1.4, -4.2, 0), text="", box=False, color=COL_SPRING)
-sel_n_label = label(canvas=force_scene, pos=vec(1.4, -4.2, 0), text="", box=False, color=COL_NORMAL)
-sel_total_label = label(canvas=force_scene, pos=vec(4.2, -4.2, 0), text="", box=False, color=COL_TOTAL)
+sel_g_label = label(canvas=force_scene, pos=vec(-5.4, -5.2, 0), text="", box=False, color=COL_GRAV)
+sel_s_label = label(canvas=force_scene, pos=vec(-2.0, -5.2, 0), text="", box=False, color=COL_SPRING)
+sel_n_label = label(canvas=force_scene, pos=vec(1.4, -5.2, 0), text="", box=False, color=COL_NORMAL)
+sel_total_label = label(canvas=force_scene, pos=vec(4.7, -5.2, 0), text="", box=False, color=COL_TOTAL)
 
 def update_selected_force_view():
     if selected_idx[0] == None:
@@ -552,26 +557,28 @@ def update_selected_force_view():
     show_arrow(sel_n_arrow, origin, Fn, SELECT_FORCE_SCALE, MAX_SELECT_ARROW)
     show_arrow(sel_total_arrow, origin, Ft, SELECT_FORCE_SCALE, MAX_SELECT_ARROW)
 
-    sel_g_label.pos = vec(-4.2, -4.2, 0)
-    sel_s_label.pos = vec(-1.4, -4.2, 0)
-    sel_n_label.pos = vec(1.4, -4.2, 0)
-    sel_total_label.pos = vec(4.2, -4.2, 0)
+    sel_g_label.pos = vec(-5.4, -5.2, 0)
+    sel_s_label.pos = vec(-2.0, -5.2, 0)
+    sel_n_label.pos = vec(1.4, -5.2, 0)
+    sel_total_label.pos = vec(4.7, -5.2, 0)
+    
+    sel_g_label.text = "G: " + str(round(mag(Fg), 2)) + " N"
+    sel_s_label.text = "S: " + str(round(mag(Fs), 2)) + " N"
+    sel_n_label.text = "N: " + str(round(mag(Fn), 2)) + " N"
+    sel_total_label.text = "T: " + str(round(mag(Ft), 2)) + " N"
 
-    sel_g_label.text = "Gravity: " + str(round(mag(Fg), 2)) + " N"
-    sel_s_label.text = "Spring: " + str(round(mag(Fs), 2)) + " N"
-    sel_n_label.text = "Normal: " + str(round(mag(Fn), 2)) + " N"
-    sel_total_label.text = "Total: " + str(round(mag(Ft), 2)) + " N"
-
+scene.append_to_caption("&nbsp;&nbsp;&nbsp;&nbsp;")
 energy_graph = graph(
     title="Kinetic / Potential / Total Mechanical Energy",
     xtitle="time (s)",
     ytitle="energy (J)",
-    width=1000,
-    height=260,
-    xmin = 0,
-    xmax = 10,
-    scroll = True,
-    fast=False
+    width=900,
+    height=250,
+    xmin=0,
+    xmax=10,
+    scroll=True,
+    fast=False,
+    align="right"
 )
 
 kinetic_curve = gcurve(graph=energy_graph, color=color.red, label="Kinetic")
@@ -649,6 +656,7 @@ while True:
     if len(circles) == 0:
         update_selected_force_view()
         continue
+
     if not simulation_running:
         for s_idx in range(len(springs)):
             i = spring_pairs[s_idx][0]
