@@ -118,29 +118,6 @@ def show_arrow(arr, p, F, scale, max_len):
 def hide_arrow(arr):
     arr.visible = False
 
-def make_spring_visual(i, j):
-    a = circles[i].pos
-    b = circles[j].pos
-
-    return cylinder(
-        canvas=scene,
-        pos=a,
-        axis=b - a,
-        radius=0.055,
-        color=color.yellow,
-        emissive=True
-    )
-
-def update_spring_visual(spring_obj, i, j):
-    a = circles[i].pos
-    b = circles[j].pos
-
-    spring_obj.pos = a
-    spring_obj.axis = b - a
-
-def hide_spring_visual(spring_obj):
-    spring_obj.visible = False
-
 def create_node_force_arrows(pos):
     grav_force_arrows.append(
         arrow(canvas=scene, pos=pos, axis=vec(0, 0, 0), color=color.red, shaftwidth=0.08)
@@ -154,21 +131,20 @@ def create_node_force_arrows(pos):
     last_normal_forces.append(vec(0, 0, 0))
     last_spring_forces.append(vec(0, 0, 0))
 
-def create_spring_force_arrows(i, j):
-    spring_force_arrows_a.append(
-        arrow(canvas=scene, pos=circles[i].pos, axis=vec(0, 0, 0), color=color.black, shaftwidth=0.07)
-    )
-
-    spring_force_arrows_b.append(
-        arrow(canvas=scene, pos=circles[j].pos, axis=vec(0, 0, 0), color=color.black, shaftwidth=0.07)
-    )
-
-def rebuild_springs():
+def manage_springs(rebuild):
     global springs, springLinks, spring_rest_lengths
     global spring_force_arrows_a, spring_force_arrows_b
 
+    if not rebuild:
+        for s_idx in range(len(springs)):
+            i = springLinks[s_idx][0]
+            j = springLinks[s_idx][1]
+            springs[s_idx].pos = circles[i].pos
+            springs[s_idx].axis = circles[j].pos - circles[i].pos
+        return
+
     for s in springs:
-        hide_spring_visual(s)
+        s.visible = False
 
     for a in spring_force_arrows_a:
         hide_arrow(a)
@@ -193,8 +169,38 @@ def rebuild_springs():
             if made < int(neighbors):
                 springLinks.append([i, j])
                 spring_rest_lengths.append(mag(circles[i].pos - circles[j].pos))
-                springs.append(make_spring_visual(i, j))
-                create_spring_force_arrows(i, j)
+
+                springs.append(
+                    cylinder(
+                        canvas=scene,
+                        pos=circles[i].pos,
+                        axis=circles[j].pos - circles[i].pos,
+                        radius=0.055,
+                        color=color.yellow,
+                        emissive=True
+                    )
+                )
+
+                spring_force_arrows_a.append(
+                    arrow(
+                        canvas=scene,
+                        pos=circles[i].pos,
+                        axis=vec(0, 0, 0),
+                        color=color.black,
+                        shaftwidth=0.07
+                    )
+                )
+
+                spring_force_arrows_b.append(
+                    arrow(
+                        canvas=scene,
+                        pos=circles[j].pos,
+                        axis=vec(0, 0, 0),
+                        color=color.black,
+                        shaftwidth=0.07
+                    )
+                )
+
                 made = made + 1
 
     spring_count_label.text = "Springs = " + str(len(springs))
@@ -345,7 +351,7 @@ def clear_all(b):
         circles[i].visible = False
 
     for s in springs:
-        hide_spring_visual(s)
+        s.visible = False
 
     for a in grav_force_arrows:
         hide_arrow(a)
@@ -434,7 +440,7 @@ def set_neighbors(s):
 
     neighbors = int(s.value)
     nb_label.text = "   Neighbors = " + str(neighbors) + "  "
-    rebuild_springs()
+    manage_springs(True)
 
 scene.append_to_caption("   ")
 slider(bind=set_neighbors, min=1, max=6, value=neighbors, length=210)
@@ -626,7 +632,7 @@ def on_mousedown(evt):
     fixed_nodes.append(False)
 
     create_node_force_arrows(pos)
-    rebuild_springs()
+    manage_springs(True)
     select_node(len(circles) - 1)
     
 
@@ -640,10 +646,7 @@ while True:
         continue
 
     if not simulation_running:
-        for s_idx in range(len(springs)):
-            i = springLinks[s_idx][0]
-            j = springLinks[s_idx][1]
-            update_spring_visual(springs[s_idx], i, j)
+        manage_springs(False)
 
         for i in range(len(circles)):
             velocities[i] = vec(0, 0, 0)
@@ -827,11 +830,7 @@ while True:
                 if speed_toward_spring < 0:
                     velocities[n] = velocities[n] - (1 + bounceLoss) * speed_toward_spring * push_dir
 
-    for s_idx in range(len(springs)):
-        i = springLinks[s_idx][0]
-        j = springLinks[s_idx][1]
-
-        update_spring_visual(springs[s_idx], i, j)
+    manage_springs(False)
 
     for i in range(len(circles)):
         show_arrow(grav_force_arrows[i], circles[i].pos, last_gravity_forces[i], forceScale, maxForceArrow)
