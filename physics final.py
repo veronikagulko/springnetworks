@@ -47,8 +47,6 @@ k_spring = 8.0
 damping = 0.999
 neighbors = 2
 default_mass = 1.0
-# Fraction of normal kinetic energy removed by a collision.
-# 0 means perfectly elastic; 1 means no rebound.
 collisionEnergyLoss = 0.75
 baseRadius = 0.35
 place_z = 0
@@ -81,31 +79,26 @@ last_spring_forces = []
 
 selectedNode = [None]
 
-def node_color(i):
-    if selectedNode[0] == i:
-        return color.red
-    if fixed_nodes[i]:
-        return vector(1, 0.35, 0.1)
-    return color.black
-
+# determines colors of the node
 def refresh_colors():
     for i in range(len(circles)):
-        circles[i].color = node_color(i)
+        if selectedNode[0] == i:
+            circles[i].color = color.red
+        elif fixed_nodes[i]:
+            circles[i].color = vector(1, 0.35, 0.1)
+        else:
+            circles[i].color = color.black
 
-def visual_radius(m):
-    return baseRadius * pow(m / default_mass, 1.0 / 3.0)
-
+# force vectors need to be above threshold of size
+# force vectors scaled down by global variable
 def limited_axis(F, scale, max_len):
     if mag(F) < 1e-9:
         return vec(0, 0, 0)
-
     axis = F * scale
-
     if mag(axis) > max_len:
         axis = norm(axis) * max_len
-
     return axis
-
+# shows aarrows (used in UI)
 def show_arrow(arr, p, F, scale, max_len):
     arr.pos = p
 
@@ -119,10 +112,11 @@ def show_arrow(arr, p, F, scale, max_len):
     else:
         arr.axis = limited_axis(F, scale, max_len)
         arr.visible = True
-
+# hides arrows (used in UI)
 def hide_arrow(arr):
     arr.visible = False
 
+# whenevr node is created, grav, normal, and spring arrows are created = 0
 def create_node_force_arrows(pos):
     gravity_arrow = arrow(canvas=scene, pos=pos, axis=vec(0, 0, 0), color=color.red, shaftwidth=0.08)
     normal_arrow = arrow(canvas=scene, pos=pos, axis=vec(0, 0, 0), color=color.blue, shaftwidth=0.08)
@@ -137,6 +131,7 @@ def create_node_force_arrows(pos):
     last_normal_forces.append(vec(0, 0, 0))
     last_spring_forces.append(vec(0, 0, 0))
 
+# spring creation + spring visual updates
 def manage_springs(rebuild):
     global springs, springLinks, spring_rest_lengths
     global spring_force_arrows_a, spring_force_arrows_b
@@ -148,7 +143,7 @@ def manage_springs(rebuild):
             springs[s_idx].pos = circles[i].pos
             springs[s_idx].axis = circles[j].pos - circles[i].pos
         return
-
+# hides all springs + arrows
     for s in springs:
         s.visible = False
 
@@ -157,7 +152,7 @@ def manage_springs(rebuild):
 
     for b in spring_force_arrows_b:
         hide_arrow(b)
-
+# clears all spring lists
     springs = []
     springLinks = []
     spring_rest_lengths = []
@@ -167,18 +162,15 @@ def manage_springs(rebuild):
     if len(circles) < 2:
         spring_count_label.text = "Springs = 0"
         return
-
+# determine node pairs (based on neighbor count)
     for i in range(len(circles)):
         made = 0
-
+#checks if path between nodes is blocked (avoid overlaps)
         for j in range(i + 1, len(circles)):
             if made < int(neighbors):
                 segment = circles[j].pos - circles[i].pos
                 segment_len2 = dot(segment, segment)
                 blocked = False
-
-                # Do not create a spring through an unrelated node. This also
-                # prevents a long spring from overlapping shorter collinear ones.
                 if segment_len2 > 1e-9:
                     for k in range(len(circles)):
                         if k != i and k != j:
@@ -193,10 +185,10 @@ def manage_springs(rebuild):
 
                 if blocked:
                     continue
-
+# adds spring index to springLinks
                 springLinks.append([i, j])
                 spring_rest_lengths.append(mag(segment))
-
+# creates the yellow cylinger as a spring
                 spring_visual = cylinder(
                     canvas=scene,
                     pos=circles[i].pos,
@@ -207,7 +199,7 @@ def manage_springs(rebuild):
                 )
                 spring_visual.pickable = False
                 springs.append(spring_visual)
-
+# create two arrows for spring forces
                 arrow_a = arrow(
                     canvas=scene,
                     pos=circles[i].pos,
@@ -223,7 +215,7 @@ def manage_springs(rebuild):
                     color=color.black,
                     shaftwidth=0.07
                 )
-
+# save arrows into list + doesn't let user click on arrows
                 arrow_a.pickable = False
                 arrow_b.pickable = False
                 spring_force_arrows_a.append(arrow_a)
@@ -233,24 +225,25 @@ def manage_springs(rebuild):
 
     spring_count_label.text = "Springs = " + str(len(springs))
 
+# calculates KE, Gravity PE, Spring PE
 def compute_energies():
     kinetic = 0
     spring_potential = 0
     gravity_potential = 0
-
+# KE = 1/2 m * v ** 2
     for i in range(len(circles)):
         kinetic = kinetic + 0.5 * masses[i] * mag2(velocities[i])
-
+# if grav working, Grav PE = m * g * h (from floor)
         if gravity_on:
             gravity_potential = gravity_potential + masses[i] * g_strength * (circles[i].pos.y - floorY)
-
+# finds distances btwn springs 
     for s_idx in range(len(springLinks)):
         i = springLinks[s_idx][0]
         j = springLinks[s_idx][1]
 
         L0 = spring_rest_lengths[s_idx]
         dist = mag(circles[j].pos - circles[i].pos)
-
+# spring PE = 0.5 * k_spring * dist ** 2
         spring_potential = spring_potential + 0.5 * k_spring * pow(dist - L0, 2)
 
     potential = spring_potential + gravity_potential
@@ -258,6 +251,7 @@ def compute_energies():
 
     return [kinetic, potential, total]
 
+# UI controls begin
 scene.append_to_caption("<b>NODE CONTROLS</b><br><br>")
 
 scene.append_to_caption("   ")
@@ -266,12 +260,12 @@ scene.append_to_caption("<br><br>")
 
 scene.append_to_caption("   ")
 wtext(text="Node mass: ")
-
+# changes selected nodes mass + visual radius + updates labels
 def set_sel_mass(s):
     if selectedNode[0] != None:
         i = selectedNode[0]
         masses[i] = s.value
-        circles[i].radius = visual_radius(s.value)
+        circles[i].radius = baseRadius * pow(s.value / default_mass, 1.0 / 3.0)
 
         status = ""
         if fixed_nodes[i]:
@@ -283,7 +277,7 @@ scene.append_to_caption("   ")
 mass_slider = slider(bind=set_sel_mass, min=0.1, max=20.0, value=default_mass, length=210)
 
 scene.append_to_caption("<br><br>")
-
+# updates labels to match selected node
 def select_node(i):
     selectedNode[0] = i
     m = masses[i]
@@ -300,7 +294,7 @@ def deselect():
     selectedNode[0] = None
     sel_label.text = "Click a node to see controls"
     refresh_colors()
-
+# turns velocity = 0 if node is stationary
 def toggle_anchor(b):
     if selectedNode[0] == None:
         return
@@ -317,6 +311,7 @@ scene.append_to_caption("   ")
 button(bind=toggle_anchor, text="Stationary On/Off")
 scene.append_to_caption("<br><br><b>   ANIMATION CONTROLS</b><br><br>")
 
+# pause / unpause simulation + start graph drawing based on this
 def toggle_gravity(b):
     global gravity_on, simulation_running
     global time, energy_counter
@@ -326,7 +321,7 @@ def toggle_gravity(b):
     simulation_running = gravity_on
 
     if gravity_on:
-        b.text = "Pause Gravity"
+        b.text = "Pause Simulation"
 
         time = 0
         energy_counter = 0
@@ -339,12 +334,12 @@ def toggle_gravity(b):
         potential_curve = gcurve(graph=energy_graph, color=color.blue, label="Potential")
         total_curve = gcurve(graph=energy_graph, color=color.black, label="Total")
     else:
-        b.text = "Begin Gravity"
+        b.text = "Begin Simulation"
 
 scene.append_to_caption("   ")
 button(bind=toggle_gravity, text="Begin Gravity")
 scene.append_to_caption("   ")
-
+# sets node velocities all to 0
 def reset_velocities(b):
     for i in range(len(velocities)):
         velocities[i] = vec(0, 0, 0)
@@ -364,7 +359,7 @@ def toggle_vectors(b):
 
 button(bind=toggle_vectors, text="Remove Vectors")
 scene.append_to_caption("   ")
-
+# reset button
 def clear_all(b):
     global circles, velocities, masses, fixed_nodes
     global springs, springLinks, spring_rest_lengths
@@ -441,6 +436,7 @@ def clear_all(b):
     sel_total_label.text = ""
 
     refresh_colors()
+    toggle_gravity()
 
 scene.append_to_caption("   ")
 button(bind=clear_all, text="Clear Screen")
@@ -449,6 +445,7 @@ scene.append_to_caption("<br><br><b>   SPRING CONTROLS</b><br><br>")
 
 k_label = wtext(text="   Spring k = " + str(round(k_spring, 1)) + " N/m  ")
 
+# change spring constant
 def set_k(s):
     global k_spring
 
@@ -463,6 +460,7 @@ scene.append_to_caption("<br><br>")
 nb_label = wtext(text="   Neighbors = " + str(int(neighbors)) + "  ")
 spring_count_label = wtext(text="   Springs = 0  ")
 
+# change number of previous neighbors node connects to 
 def set_neighbors(s):
     global neighbors
 
@@ -477,6 +475,8 @@ scene.append_to_caption("<br><br>")
 
 damp_label = wtext(text="   Damping = " + str(round(damping, 4)) + "  ")
 
+# changes velocity multiplier applied each frame,  values below 1 continuously remove KE
+# v = updated v * damping
 def set_damping(s):
     global damping
 
@@ -492,6 +492,8 @@ collision_loss_label = wtext(
     text="   Collision energy loss = " + str(round(collisionEnergyLoss * 100, 0)) + "%  "
 )
 
+# stores selected fraction of KE removed during collisions
+# main run loop converts this to restitution afterwards
 def set_collision_energy_loss(s):
     global collisionEnergyLoss
 
@@ -505,6 +507,7 @@ scene.append_to_caption("<br><br><b>   3D PLACEMENT</b><br><br>")
 
 z_label = wtext(text="   Placement z = " + str(round(place_z, 1)) + "  ")
 
+# user selects default z placement
 def set_place_z(s):
     global place_z
 
@@ -519,6 +522,7 @@ scene.append_to_caption("   ")
 g_label = wtext(text="g = " + str(round(g_strength, 1)) + " m/s^2  ")
 scene.append_to_caption("<br>")
 
+# select gravity by planetary location
 def set_mars(b):
     global g_strength
     g_strength = 3.7
@@ -544,48 +548,39 @@ button(bind=set_jupiter, text="Jupiter")
 scene.append_to_caption("<br><br><b></b><br><br>")
 scene.append_to_caption("<br><br>")
 
-force_scene = canvas(
-    width=500,
-    height=300,
-    background=color.white,
-    align="left"
-)
+force_scene = canvas(width=500, height=300, background=color.white, align="left")
 
 force_scene.range = 6
 force_scene.center = vec(0, 0, 0)
 force_scene.userzoom = False
 force_scene.userspin = False
 
-force_origin = sphere(
-    canvas=force_scene,
-    pos=vec(0, 0.7, 0),
-    radius=0.24,
-    color=color.red
-)
+force_origin = sphere(canvas=force_scene, pos=vec(0, 0.7, 0), radius=0.24, color=color.red)
 
+# force arrows created for the selected node
 sel_g_arrow = arrow(canvas=force_scene, pos=vec(0, 0.7, 0), axis=vec(0, 0, 0), color=color.red, shaftwidth=0.14)
 sel_s_arrow = arrow(canvas=force_scene, pos=vec(0, 0.7, 0), axis=vec(0, 0, 0), color=color.black, shaftwidth=0.14)
 sel_n_arrow = arrow(canvas=force_scene, pos=vec(0, 0.7, 0), axis=vec(0, 0, 0), color=color.blue, shaftwidth=0.14)
 sel_total_arrow = arrow(canvas=force_scene, pos=vec(0, 0.7, 0), axis=vec(0, 0, 0), color=color.green, shaftwidth=0.16)
 
+# force labels are created for selected node
 sel_g_label = label(canvas=force_scene, pos=vec(-5.4, -5.2, 0), text="", box=False, color=color.red)
 sel_s_label = label(canvas=force_scene, pos=vec(-2.0, -5.2, 0), text="", box=False, color=color.black)
 sel_n_label = label(canvas=force_scene, pos=vec(1.4, -5.2, 0), text="", box=False, color=color.blue)
 sel_total_label = label(canvas=force_scene, pos=vec(4.7, -5.2, 0), text="", box=False, color=color.green)
 
+# updates the arrows + force labels for the force scene
 def update_selected_force_view():
     if selectedNode[0] == None:
         sel_g_arrow.visible = False
         sel_s_arrow.visible = False
         sel_n_arrow.visible = False
         sel_total_arrow.visible = False
-
         sel_g_label.text = ""
         sel_s_label.text = ""
         sel_n_label.text = ""
         sel_total_label.text = ""
         return
-
     i = selectedNode[0]
 
     Fg = last_gravity_forces[i]
@@ -594,23 +589,22 @@ def update_selected_force_view():
     Ft = Fg + Fs + Fn
 
     origin = vec(0, 0.7, 0)
-
     show_arrow(sel_g_arrow, origin, Fg, selectForceScale, maxSelectArrow)
     show_arrow(sel_s_arrow, origin, Fs, selectForceScale, maxSelectArrow)
     show_arrow(sel_n_arrow, origin, Fn, selectForceScale, maxSelectArrow)
     show_arrow(sel_total_arrow, origin, Ft, selectForceScale, maxSelectArrow)
-
     sel_g_label.pos = vec(-5.4, -5.2, 0)
     sel_s_label.pos = vec(-2.0, -5.2, 0)
     sel_n_label.pos = vec(1.4, -5.2, 0)
     sel_total_label.pos = vec(4.7, -5.2, 0)
-    
     sel_g_label.text = "G: " + str(round(mag(Fg), 2)) + " N"
     sel_s_label.text = "S: " + str(round(mag(Fs), 2)) + " N"
     sel_n_label.text = "N: " + str(round(mag(Fn), 2)) + " N"
     sel_total_label.text = "T: " + str(round(mag(Ft), 2)) + " N"
 
 scene.append_to_caption("&nbsp;&nbsp;&nbsp;&nbsp;")
+
+# energy graph is created
 energy_graph = graph(
     title="Kinetic / Potential / Total Mechanical Energy",
     xtitle="time (s)",
@@ -624,31 +618,30 @@ energy_graph = graph(
     align="right"
 )
 
+# curves for graph are defined
 kinetic_curve = gcurve(graph=energy_graph, color=color.red, label="Kinetic")
 potential_curve = gcurve(graph=energy_graph, color=color.blue, label="Potential")
 total_curve = gcurve(graph=energy_graph, color=color.black, label="Total")
 
+# node selection and creation
 def on_mousedown(evt):
     click_pos = evt.pos
 
-    # Prefer GlowScript object picking when the sphere itself was clicked.
+# checks if there is node to select in that location 
     picked = scene.mouse.pick
     if picked != None:
         for i in range(len(circles)):
             if picked == circles[i]:
                 select_node(i)
                 return
-
-    # Fallback for cases where another visual overlaps the node.
     for i in range(len(circles)):
         if mag(click_pos - circles[i].pos) < circles[i].radius * 1.5:
             select_node(i)
             return
 
     pos = vec(click_pos.x, click_pos.y, place_z)
-    r_new = visual_radius(default_mass)
-
-    # Prevent creation outside the simulation bounds.
+    r_new = baseRadius * pow(default_mass / default_mass, 1.0 / 3.0)
+# checks that nodes are within boundaries of simulation
     if pos.x - r_new < -wallX:
         return
     if pos.x + r_new > wallX:
@@ -661,12 +654,11 @@ def on_mousedown(evt):
         return
     if pos.z + r_new > wallZ:
         return
-
-    # Prevent nodes from being created on top of each other.
+# checks if nodes overlap
     for k in range(len(circles)):
         if mag(pos - circles[k].pos) < circles[k].radius + r_new:
             return
-
+# create node object, store in list
     circles.append(
         sphere(
             canvas=scene,
@@ -675,11 +667,10 @@ def on_mousedown(evt):
             color=color.black
         )
     )
-
+# create values for matching indexes for the node created
     velocities.append(vec(0, 0, 0))
     masses.append(default_mass)
     fixed_nodes.append(False)
-
     create_node_force_arrows(pos)
     manage_springs(True)
     select_node(len(circles) - 1)
@@ -687,9 +678,10 @@ def on_mousedown(evt):
 
 scene.bind("mousedown", on_mousedown)
 
+# simulation run thru
 while True:
     rate(120)
-
+# dont run if no nodes 
     if len(circles) == 0:
         update_selected_force_view()
         continue
@@ -704,9 +696,7 @@ while True:
         continue
 
     forces = []
-
-    # A fraction L of energy lost corresponds to restitution sqrt(1 - L),
-    # because kinetic energy is proportional to speed squared.
+# this calculates how much KE we have lost previously
     restitution = sqrt(1 - collisionEnergyLoss)
 
     for i in range(len(circles)):
