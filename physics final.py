@@ -171,13 +171,31 @@ def manage_springs(rebuild):
 
         for j in range(i + 1, len(circles)):
             if made < int(neighbors):
+                segment = circles[j].pos - circles[i].pos
+                segment_len2 = dot(segment, segment)
+                blocked = False
+                if segment_len2 > 1e-9:
+                    for k in range(len(circles)):
+                        if k != i and k != j:
+                            t = dot(circles[k].pos - circles[i].pos, segment) / segment_len2
+
+                            if t > 0 and t < 1:
+                                closest = circles[i].pos + segment * t
+
+                                if mag(circles[k].pos - closest) < circles[k].radius + 0.055:
+                                    blocked = True
+                                    break
+
+                if blocked:
+                    continue
+
                 springLinks.append([i, j])
-                spring_rest_lengths.append(mag(circles[i].pos - circles[j].pos))
+                spring_rest_lengths.append(mag(segment))
 
                 spring_visual = cylinder(
                     canvas=scene,
                     pos=circles[i].pos,
-                    axis=circles[j].pos - circles[i].pos,
+                    axis=segment,
                     radius=0.055,
                     color=color.yellow,
                     emissive=True
