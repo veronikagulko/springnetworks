@@ -14,58 +14,64 @@ scene.range = 6
 scene.center = vec(0, 0, 0)
 scene.lights = []
 
+# lights used to be multi colored, no longer useful
 local_light(pos=vector(5, 5, 5), color=color.white)
 local_light(pos=vector(5, 5, -5), color=color.white)
 
+# def + visualize the bound box + color in the floor
+floorY = -4.6
+ceilingY = 4.6
+wallX = 4.6
+wallZ = 4.6
+
+floor_visual = box(canvas=scene, pos=vec(0, floorY - 0.03, 0), size=vec(2 * wallX, 0.06, 2 * wallZ), color=vector(0.85, 0.85, 0.85), opacity=0.35)
+bounds_frame = box(canvas=scene, pos=vec(0, 0, 0), size=vec(2 * wallX, ceilingY - floorY, 2 * wallZ), color=color.gray(0.6),opacity=0.08)
+
+# simulation frame rate controls
 dt = 0.005
 time = 0
 energy_counter = 0
-
-# Plot energy every 2 animation frames instead of every frame.
-# This keeps the graph smoother/faster without changing the physics.
+# plots graph every 2 frames (instead of every)
 ENERGY_PLOT_EVERY = 2
 
 simulation_running = False
 gravity_on = False
 show_vectors = True
 
+# parameters for beginning of sim
 g_strength = 9.8
 k_spring = 8.0
 damping = 0.999
 neighbors = 2
 default_mass = 1.0
-COR = 0.5
-BASE_RADIUS = 0.35
-
-FLOOR_Y = -4.6
-CEIL_Y = 4.6
-WALL_X = 4.6
-WALL_Z = 4.6
-
+bounceLoss = 0.5
+baseRadius = 0.35
 place_z = 0
-SPRING_CLEARANCE = 0.18
+springClearance = 0.18
 
-FORCE_SCALE = 0.12
-SELECT_FORCE_SCALE = 0.28
-MAX_FORCE_ARROW = 3.0
-MAX_SELECT_ARROW = 3.5
+forceScale = 0.12
+selectForceScale = 0.28
+maxForceArrow = 3.0
+maxSelectArrow = 3.5
 
-COL_FREE = color.black
-COL_FIXED = vector(1, 0.35, 0.1)
-COL_SELECTED = color.red
 
-COL_GRAV = color.red
-COL_SPRING = color.black
-COL_NORMAL = color.blue
-COL_TOTAL = color.green
+freeColor = color.black
+fixedColor = vector(1, 0.35, 0.1)
+selectedColor = color.red
 
+gravityColor = color.red
+springColor = color.black
+normalColor = color.blue
+totalColor = color.green
+
+# storage lists
 circles = []
 velocities = []
 masses = []
 fixed_nodes = []
 
 springs = []
-spring_pairs = []
+springLinks = []
 spring_rest_lengths = []
 
 grav_force_arrows = []
@@ -77,23 +83,21 @@ last_gravity_forces = []
 last_normal_forces = []
 last_spring_forces = []
 
-selected_idx = [None]
-dragging = False
-drag_idx = [None]
+selectedNode = [None]
 
 def node_color(i):
-    if selected_idx[0] == i:
-        return COL_SELECTED
+    if selectedNode[0] == i:
+        return selectedColor
     if fixed_nodes[i]:
-        return COL_FIXED
-    return COL_FREE
+        return fixedColor
+    return freeColor
 
 def refresh_colors():
     for i in range(len(circles)):
         circles[i].color = node_color(i)
 
 def visual_radius(m):
-    return BASE_RADIUS * pow(m / default_mass, 1.0 / 3.0)
+    return baseRadius * pow(m / default_mass, 1.0 / 3.0)
 
 def limited_axis(F, scale, max_len):
     if mag(F) < 1e-9:
@@ -148,11 +152,11 @@ def hide_spring_visual(spring_obj):
 
 def create_node_force_arrows(pos):
     grav_force_arrows.append(
-        arrow(canvas=scene, pos=pos, axis=vec(0, 0, 0), color=COL_GRAV, shaftwidth=0.08)
+        arrow(canvas=scene, pos=pos, axis=vec(0, 0, 0), color=gravityColor, shaftwidth=0.08)
     )
 
     normal_force_arrows.append(
-        arrow(canvas=scene, pos=pos, axis=vec(0, 0, 0), color=COL_NORMAL, shaftwidth=0.08)
+        arrow(canvas=scene, pos=pos, axis=vec(0, 0, 0), color=normalColor, shaftwidth=0.08)
     )
 
     last_gravity_forces.append(vec(0, 0, 0))
@@ -161,15 +165,15 @@ def create_node_force_arrows(pos):
 
 def create_spring_force_arrows(i, j):
     spring_force_arrows_a.append(
-        arrow(canvas=scene, pos=circles[i].pos, axis=vec(0, 0, 0), color=COL_SPRING, shaftwidth=0.07)
+        arrow(canvas=scene, pos=circles[i].pos, axis=vec(0, 0, 0), color=springColor, shaftwidth=0.07)
     )
 
     spring_force_arrows_b.append(
-        arrow(canvas=scene, pos=circles[j].pos, axis=vec(0, 0, 0), color=COL_SPRING, shaftwidth=0.07)
+        arrow(canvas=scene, pos=circles[j].pos, axis=vec(0, 0, 0), color=springColor, shaftwidth=0.07)
     )
 
 def rebuild_springs():
-    global springs, spring_pairs, spring_rest_lengths
+    global springs, springLinks, spring_rest_lengths
     global spring_force_arrows_a, spring_force_arrows_b
 
     for s in springs:
@@ -182,7 +186,7 @@ def rebuild_springs():
         hide_arrow(b)
 
     springs = []
-    spring_pairs = []
+    springLinks = []
     spring_rest_lengths = []
     spring_force_arrows_a = []
     spring_force_arrows_b = []
@@ -196,7 +200,7 @@ def rebuild_springs():
 
         for j in range(i + 1, len(circles)):
             if made < int(neighbors):
-                spring_pairs.append([i, j])
+                springLinks.append([i, j])
                 spring_rest_lengths.append(mag(circles[i].pos - circles[j].pos))
                 springs.append(make_spring_visual(i, j))
                 create_spring_force_arrows(i, j)
@@ -213,11 +217,11 @@ def compute_energies():
         kinetic = kinetic + 0.5 * masses[i] * mag2(velocities[i])
 
         if gravity_on:
-            gravity_potential = gravity_potential + masses[i] * g_strength * (circles[i].pos.y - FLOOR_Y)
+            gravity_potential = gravity_potential + masses[i] * g_strength * (circles[i].pos.y - floorY)
 
-    for s_idx in range(len(spring_pairs)):
-        i = spring_pairs[s_idx][0]
-        j = spring_pairs[s_idx][1]
+    for s_idx in range(len(springLinks)):
+        i = springLinks[s_idx][0]
+        j = springLinks[s_idx][1]
 
         L0 = spring_rest_lengths[s_idx]
         dist = mag(circles[j].pos - circles[i].pos)
@@ -239,8 +243,8 @@ scene.append_to_caption("   ")
 wtext(text="Node mass: ")
 
 def set_sel_mass(s):
-    if selected_idx[0] != None:
-        i = selected_idx[0]
+    if selectedNode[0] != None:
+        i = selectedNode[0]
         masses[i] = s.value
         circles[i].radius = visual_radius(s.value)
 
@@ -256,7 +260,7 @@ mass_slider = slider(bind=set_sel_mass, min=0.1, max=20.0, value=default_mass, l
 scene.append_to_caption("<br><br>")
 
 def select_node(i):
-    selected_idx[0] = i
+    selectedNode[0] = i
     m = masses[i]
 
     status = ""
@@ -268,15 +272,15 @@ def select_node(i):
     refresh_colors()
 
 def deselect():
-    selected_idx[0] = None
+    selectedNode[0] = None
     sel_label.text = "Click a node to see controls"
     refresh_colors()
 
 def toggle_anchor(b):
-    if selected_idx[0] == None:
+    if selectedNode[0] == None:
         return
 
-    i = selected_idx[0]
+    i = selectedNode[0]
     fixed_nodes[i] = not fixed_nodes[i]
 
     if fixed_nodes[i]:
@@ -338,7 +342,7 @@ scene.append_to_caption("   ")
 
 def clear_all(b):
     global circles, velocities, masses, fixed_nodes
-    global springs, spring_pairs, spring_rest_lengths
+    global springs, springLinks, spring_rest_lengths
     global grav_force_arrows, normal_force_arrows
     global spring_force_arrows_a, spring_force_arrows_b
     global last_gravity_forces, last_normal_forces, last_spring_forces
@@ -370,7 +374,7 @@ def clear_all(b):
     fixed_nodes = []
 
     springs = []
-    spring_pairs = []
+    springLinks = []
     spring_rest_lengths = []
 
     grav_force_arrows = []
@@ -382,8 +386,7 @@ def clear_all(b):
     last_normal_forces = []
     last_spring_forces = []
 
-    selected_idx[0] = None
-    drag_idx[0] = None
+    selectedNode[0] = None
 
     time = 0
     energy_counter = 0
@@ -520,18 +523,18 @@ force_origin = sphere(
     color=color.red
 )
 
-sel_g_arrow = arrow(canvas=force_scene, pos=vec(0, 0.7, 0), axis=vec(0, 0, 0), color=COL_GRAV, shaftwidth=0.14)
-sel_s_arrow = arrow(canvas=force_scene, pos=vec(0, 0.7, 0), axis=vec(0, 0, 0), color=COL_SPRING, shaftwidth=0.14)
-sel_n_arrow = arrow(canvas=force_scene, pos=vec(0, 0.7, 0), axis=vec(0, 0, 0), color=COL_NORMAL, shaftwidth=0.14)
-sel_total_arrow = arrow(canvas=force_scene, pos=vec(0, 0.7, 0), axis=vec(0, 0, 0), color=COL_TOTAL, shaftwidth=0.16)
+sel_g_arrow = arrow(canvas=force_scene, pos=vec(0, 0.7, 0), axis=vec(0, 0, 0), color=gravityColor, shaftwidth=0.14)
+sel_s_arrow = arrow(canvas=force_scene, pos=vec(0, 0.7, 0), axis=vec(0, 0, 0), color=springColor, shaftwidth=0.14)
+sel_n_arrow = arrow(canvas=force_scene, pos=vec(0, 0.7, 0), axis=vec(0, 0, 0), color=normalColor, shaftwidth=0.14)
+sel_total_arrow = arrow(canvas=force_scene, pos=vec(0, 0.7, 0), axis=vec(0, 0, 0), color=totalColor, shaftwidth=0.16)
 
-sel_g_label = label(canvas=force_scene, pos=vec(-5.4, -5.2, 0), text="", box=False, color=COL_GRAV)
-sel_s_label = label(canvas=force_scene, pos=vec(-2.0, -5.2, 0), text="", box=False, color=COL_SPRING)
-sel_n_label = label(canvas=force_scene, pos=vec(1.4, -5.2, 0), text="", box=False, color=COL_NORMAL)
-sel_total_label = label(canvas=force_scene, pos=vec(4.7, -5.2, 0), text="", box=False, color=COL_TOTAL)
+sel_g_label = label(canvas=force_scene, pos=vec(-5.4, -5.2, 0), text="", box=False, color=gravityColor)
+sel_s_label = label(canvas=force_scene, pos=vec(-2.0, -5.2, 0), text="", box=False, color=springColor)
+sel_n_label = label(canvas=force_scene, pos=vec(1.4, -5.2, 0), text="", box=False, color=normalColor)
+sel_total_label = label(canvas=force_scene, pos=vec(4.7, -5.2, 0), text="", box=False, color=totalColor)
 
 def update_selected_force_view():
-    if selected_idx[0] == None:
+    if selectedNode[0] == None:
         sel_g_arrow.visible = False
         sel_s_arrow.visible = False
         sel_n_arrow.visible = False
@@ -543,7 +546,7 @@ def update_selected_force_view():
         sel_total_label.text = ""
         return
 
-    i = selected_idx[0]
+    i = selectedNode[0]
 
     Fg = last_gravity_forces[i]
     Fs = last_spring_forces[i]
@@ -552,10 +555,10 @@ def update_selected_force_view():
 
     origin = vec(0, 0.7, 0)
 
-    show_arrow(sel_g_arrow, origin, Fg, SELECT_FORCE_SCALE, MAX_SELECT_ARROW)
-    show_arrow(sel_s_arrow, origin, Fs, SELECT_FORCE_SCALE, MAX_SELECT_ARROW)
-    show_arrow(sel_n_arrow, origin, Fn, SELECT_FORCE_SCALE, MAX_SELECT_ARROW)
-    show_arrow(sel_total_arrow, origin, Ft, SELECT_FORCE_SCALE, MAX_SELECT_ARROW)
+    show_arrow(sel_g_arrow, origin, Fg, selectForceScale, maxSelectArrow)
+    show_arrow(sel_s_arrow, origin, Fs, selectForceScale, maxSelectArrow)
+    show_arrow(sel_n_arrow, origin, Fn, selectForceScale, maxSelectArrow)
+    show_arrow(sel_total_arrow, origin, Ft, selectForceScale, maxSelectArrow)
 
     sel_g_label.pos = vec(-5.4, -5.2, 0)
     sel_s_label.pos = vec(-2.0, -5.2, 0)
@@ -586,69 +589,57 @@ potential_curve = gcurve(graph=energy_graph, color=color.blue, label="Potential"
 total_curve = gcurve(graph=energy_graph, color=color.black, label="Total")
 
 def on_mousedown(evt):
-    global dragging
-
     picked = scene.mouse.pick
 
+    # Select an existing node without moving it.
     if picked != None:
         for i in range(len(circles)):
             if picked == circles[i]:
                 select_node(i)
-                drag_idx[0] = i
-                dragging = True
-                velocities[i] = vec(0, 0, 0)
                 return
 
     click_pos = evt.pos
     pos = vec(click_pos.x, click_pos.y, place_z)
+    r_new = visual_radius(default_mass)
 
-    overlaps = False
+    # Prevent creation outside the simulation bounds.
+    if pos.x - r_new < -wallX:
+        return
+    if pos.x + r_new > wallX:
+        return
+    if pos.y - r_new < floorY:
+        return
+    if pos.y + r_new > ceilingY:
+        return
+    if pos.z - r_new < -wallZ:
+        return
+    if pos.z + r_new > wallZ:
+        return
 
+    # Prevent nodes from being created on top of each other.
     for k in range(len(circles)):
-        if mag(pos - circles[k].pos) < circles[k].radius + BASE_RADIUS:
-            overlaps = True
+        if mag(pos - circles[k].pos) < circles[k].radius + r_new:
+            return
 
-    if not overlaps:
-        m = default_mass
-
-        circles.append(
-            sphere(
-                canvas=scene,
-                pos=pos,
-                radius=visual_radius(m),
-                color=COL_FREE
-            )
+    circles.append(
+        sphere(
+            canvas=scene,
+            pos=pos,
+            radius=r_new,
+            color=freeColor
         )
+    )
 
-        velocities.append(vec(0, 0, 0))
-        masses.append(m)
-        fixed_nodes.append(False)
+    velocities.append(vec(0, 0, 0))
+    masses.append(default_mass)
+    fixed_nodes.append(False)
 
-        create_node_force_arrows(pos)
-        rebuild_springs()
-        select_node(len(circles) - 1)
-
-def on_mousemove(evt):
-    if not dragging:
-        return
-
-    i = drag_idx[0]
-
-    if i == None:
-        return
-
-    circles[i].pos = vec(evt.pos.x, evt.pos.y, place_z)
-    velocities[i] = vec(0, 0, 0)
-
-def on_mouseup(evt):
-    global dragging
-
-    dragging = False
-    drag_idx[0] = None
+    create_node_force_arrows(pos)
+    rebuild_springs()
+    select_node(len(circles) - 1)
+    
 
 scene.bind("mousedown", on_mousedown)
-scene.bind("mousemove", on_mousemove)
-scene.bind("mouseup", on_mouseup)
 
 while True:
     rate(120)
@@ -659,8 +650,8 @@ while True:
 
     if not simulation_running:
         for s_idx in range(len(springs)):
-            i = spring_pairs[s_idx][0]
-            j = spring_pairs[s_idx][1]
+            i = springLinks[s_idx][0]
+            j = springLinks[s_idx][1]
             update_spring_visual(springs[s_idx], i, j)
 
         for i in range(len(circles)):
@@ -685,8 +676,8 @@ while True:
                 last_gravity_forces[i] = Fg
 
     for s_idx in range(len(springs)):
-        i = spring_pairs[s_idx][0]
-        j = spring_pairs[s_idx][1]
+        i = springLinks[s_idx][0]
+        j = springLinks[s_idx][1]
 
         L0 = spring_rest_lengths[s_idx]
         delta = circles[j].pos - circles[i].pos
@@ -705,8 +696,8 @@ while True:
             forces[j] = forces[j] - f
             last_spring_forces[j] = last_spring_forces[j] - f
 
-        show_arrow(spring_force_arrows_a[s_idx], circles[i].pos, f, FORCE_SCALE, MAX_FORCE_ARROW)
-        show_arrow(spring_force_arrows_b[s_idx], circles[j].pos, -f, FORCE_SCALE, MAX_FORCE_ARROW)
+        show_arrow(spring_force_arrows_a[s_idx], circles[i].pos, f, forceScale, maxForceArrow)
+        show_arrow(spring_force_arrows_b[s_idx], circles[j].pos, -f, forceScale, maxForceArrow)
 
     for i in range(len(circles)):
         if fixed_nodes[i]:
@@ -720,40 +711,40 @@ while True:
 
         r = circles[i].radius
 
-        if circles[i].pos.y - r < FLOOR_Y:
-            normal_mag = masses[i] * abs(velocities[i].y) * (1 + COR) / dt
-            circles[i].pos.y = FLOOR_Y + r
-            velocities[i].y = abs(velocities[i].y) * COR
+        if circles[i].pos.y - r < floorY:
+            normal_mag = masses[i] * abs(velocities[i].y) * (1 + bounceLoss) / dt
+            circles[i].pos.y = floorY + r
+            velocities[i].y = abs(velocities[i].y) * bounceLoss
             last_normal_forces[i] = last_normal_forces[i] + vec(0, normal_mag, 0)
 
-        if circles[i].pos.y + r > CEIL_Y:
-            normal_mag = masses[i] * abs(velocities[i].y) * (1 + COR) / dt
-            circles[i].pos.y = CEIL_Y - r
-            velocities[i].y = -abs(velocities[i].y) * COR
+        if circles[i].pos.y + r > ceilingY:
+            normal_mag = masses[i] * abs(velocities[i].y) * (1 + bounceLoss) / dt
+            circles[i].pos.y = ceilingY - r
+            velocities[i].y = -abs(velocities[i].y) * bounceLoss
             last_normal_forces[i] = last_normal_forces[i] + vec(0, -normal_mag, 0)
 
-        if circles[i].pos.x - r < -WALL_X:
-            normal_mag = masses[i] * abs(velocities[i].x) * (1 + COR) / dt
-            circles[i].pos.x = -WALL_X + r
-            velocities[i].x = abs(velocities[i].x) * COR
+        if circles[i].pos.x - r < -wallX:
+            normal_mag = masses[i] * abs(velocities[i].x) * (1 + bounceLoss) / dt
+            circles[i].pos.x = -wallX + r
+            velocities[i].x = abs(velocities[i].x) * bounceLoss
             last_normal_forces[i] = last_normal_forces[i] + vec(normal_mag, 0, 0)
 
-        if circles[i].pos.x + r > WALL_X:
-            normal_mag = masses[i] * abs(velocities[i].x) * (1 + COR) / dt
-            circles[i].pos.x = WALL_X - r
-            velocities[i].x = -abs(velocities[i].x) * COR
+        if circles[i].pos.x + r > wallX:
+            normal_mag = masses[i] * abs(velocities[i].x) * (1 + bounceLoss) / dt
+            circles[i].pos.x = wallX - r
+            velocities[i].x = -abs(velocities[i].x) * bounceLoss
             last_normal_forces[i] = last_normal_forces[i] + vec(-normal_mag, 0, 0)
 
-        if circles[i].pos.z - r < -WALL_Z:
-            normal_mag = masses[i] * abs(velocities[i].z) * (1 + COR) / dt
-            circles[i].pos.z = -WALL_Z + r
-            velocities[i].z = abs(velocities[i].z) * COR
+        if circles[i].pos.z - r < -wallZ:
+            normal_mag = masses[i] * abs(velocities[i].z) * (1 + bounceLoss) / dt
+            circles[i].pos.z = -wallZ + r
+            velocities[i].z = abs(velocities[i].z) * bounceLoss
             last_normal_forces[i] = last_normal_forces[i] + vec(0, 0, normal_mag)
 
-        if circles[i].pos.z + r > WALL_Z:
-            normal_mag = masses[i] * abs(velocities[i].z) * (1 + COR) / dt
-            circles[i].pos.z = WALL_Z - r
-            velocities[i].z = -abs(velocities[i].z) * COR
+        if circles[i].pos.z + r > wallZ:
+            normal_mag = masses[i] * abs(velocities[i].z) * (1 + bounceLoss) / dt
+            circles[i].pos.z = wallZ - r
+            velocities[i].z = -abs(velocities[i].z) * bounceLoss
             last_normal_forces[i] = last_normal_forces[i] + vec(0, 0, -normal_mag)
 
     for a in range(len(circles)):
@@ -785,7 +776,7 @@ while True:
                 speed = dot(rel_vel, n)
 
                 if speed < 0:
-                    impulse = -(1 + COR) * speed
+                    impulse = -(1 + bounceLoss) * speed
                     impulse = impulse / ((1 / masses[a]) + (1 / masses[b]))
 
                     if not fixed_nodes[a]:
@@ -801,9 +792,9 @@ while True:
         p = circles[n].pos
         node_r = circles[n].radius
 
-        for s_idx in range(len(spring_pairs)):
-            a_idx = spring_pairs[s_idx][0]
-            b_idx = spring_pairs[s_idx][1]
+        for s_idx in range(len(springLinks)):
+            a_idx = springLinks[s_idx][0]
+            b_idx = springLinks[s_idx][1]
 
             if n == a_idx or n == b_idx:
                 continue
@@ -827,7 +818,7 @@ while True:
             delta = p - closest
             dist = mag(delta)
 
-            min_dist = node_r + SPRING_CLEARANCE
+            min_dist = node_r + springClearance
 
             if dist < 1e-9:
                 spring_dir = norm(ab)
@@ -843,17 +834,17 @@ while True:
                 speed_toward_spring = dot(velocities[n], push_dir)
 
                 if speed_toward_spring < 0:
-                    velocities[n] = velocities[n] - (1 + COR) * speed_toward_spring * push_dir
+                    velocities[n] = velocities[n] - (1 + bounceLoss) * speed_toward_spring * push_dir
 
     for s_idx in range(len(springs)):
-        i = spring_pairs[s_idx][0]
-        j = spring_pairs[s_idx][1]
+        i = springLinks[s_idx][0]
+        j = springLinks[s_idx][1]
 
         update_spring_visual(springs[s_idx], i, j)
 
     for i in range(len(circles)):
-        show_arrow(grav_force_arrows[i], circles[i].pos, last_gravity_forces[i], FORCE_SCALE, MAX_FORCE_ARROW)
-        show_arrow(normal_force_arrows[i], circles[i].pos, last_normal_forces[i], FORCE_SCALE, MAX_FORCE_ARROW)
+        show_arrow(grav_force_arrows[i], circles[i].pos, last_gravity_forces[i], forceScale, maxForceArrow)
+        show_arrow(normal_force_arrows[i], circles[i].pos, last_normal_forces[i], forceScale, maxForceArrow)
 
     update_selected_force_view()
 
