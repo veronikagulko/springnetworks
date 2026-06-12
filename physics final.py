@@ -47,7 +47,9 @@ k_spring = 8.0
 damping = 0.999
 neighbors = 2
 default_mass = 1.0
-bounceLoss = 0.5
+# Fraction of normal kinetic energy removed by a collision.
+# 0 means perfectly elastic; 1 means no rebound.
+collisionEnergyLoss = 0.75
 baseRadius = 0.35
 place_z = 0
 springClearance = 0.18
@@ -174,6 +176,9 @@ def manage_springs(rebuild):
                 segment = circles[j].pos - circles[i].pos
                 segment_len2 = dot(segment, segment)
                 blocked = False
+
+                # Do not create a spring through an unrelated node. This also
+                # prevents a long spring from overlapping shorter collinear ones.
                 if segment_len2 > 1e-9:
                     for k in range(len(circles)):
                         if k != i and k != j:
@@ -481,6 +486,21 @@ def set_damping(s):
 scene.append_to_caption("   ")
 slider(bind=set_damping, min=0.980, max=1.000, value=damping, length=210)
 
+scene.append_to_caption("<br><br>")
+
+collision_loss_label = wtext(
+    text="   Collision energy loss = " + str(round(collisionEnergyLoss * 100, 0)) + "%  "
+)
+
+def set_collision_energy_loss(s):
+    global collisionEnergyLoss
+
+    collisionEnergyLoss = s.value
+    collision_loss_label.text = "   Collision energy loss = " + str(round(collisionEnergyLoss * 100, 0)) + "%  "
+
+scene.append_to_caption("   ")
+slider(bind=set_collision_energy_loss, min=0.0, max=1.0, value=collisionEnergyLoss, length=210)
+
 scene.append_to_caption("<br><br><b>   3D PLACEMENT</b><br><br>")
 
 z_label = wtext(text="   Placement z = " + str(round(place_z, 1)) + "  ")
@@ -685,6 +705,10 @@ while True:
 
     forces = []
 
+    # A fraction L of energy lost corresponds to restitution sqrt(1 - L),
+    # because kinetic energy is proportional to speed squared.
+    restitution = sqrt(1 - collisionEnergyLoss)
+
     for i in range(len(circles)):
         forces.append(vec(0, 0, 0))
         last_gravity_forces[i] = vec(0, 0, 0)
@@ -735,39 +759,39 @@ while True:
         r = circles[i].radius
 
         if circles[i].pos.y - r < floorY:
-            normal_mag = masses[i] * abs(velocities[i].y) * (1 + bounceLoss) / dt
+            normal_mag = masses[i] * abs(velocities[i].y) * (1 + restitution) / dt
             circles[i].pos.y = floorY + r
-            velocities[i].y = abs(velocities[i].y) * bounceLoss
+            velocities[i].y = abs(velocities[i].y) * restitution
             last_normal_forces[i] = last_normal_forces[i] + vec(0, normal_mag, 0)
 
         if circles[i].pos.y + r > ceilingY:
-            normal_mag = masses[i] * abs(velocities[i].y) * (1 + bounceLoss) / dt
+            normal_mag = masses[i] * abs(velocities[i].y) * (1 + restitution) / dt
             circles[i].pos.y = ceilingY - r
-            velocities[i].y = -abs(velocities[i].y) * bounceLoss
+            velocities[i].y = -abs(velocities[i].y) * restitution
             last_normal_forces[i] = last_normal_forces[i] + vec(0, -normal_mag, 0)
 
         if circles[i].pos.x - r < -wallX:
-            normal_mag = masses[i] * abs(velocities[i].x) * (1 + bounceLoss) / dt
+            normal_mag = masses[i] * abs(velocities[i].x) * (1 + restitution) / dt
             circles[i].pos.x = -wallX + r
-            velocities[i].x = abs(velocities[i].x) * bounceLoss
+            velocities[i].x = abs(velocities[i].x) * restitution
             last_normal_forces[i] = last_normal_forces[i] + vec(normal_mag, 0, 0)
 
         if circles[i].pos.x + r > wallX:
-            normal_mag = masses[i] * abs(velocities[i].x) * (1 + bounceLoss) / dt
+            normal_mag = masses[i] * abs(velocities[i].x) * (1 + restitution) / dt
             circles[i].pos.x = wallX - r
-            velocities[i].x = -abs(velocities[i].x) * bounceLoss
+            velocities[i].x = -abs(velocities[i].x) * restitution
             last_normal_forces[i] = last_normal_forces[i] + vec(-normal_mag, 0, 0)
 
         if circles[i].pos.z - r < -wallZ:
-            normal_mag = masses[i] * abs(velocities[i].z) * (1 + bounceLoss) / dt
+            normal_mag = masses[i] * abs(velocities[i].z) * (1 + restitution) / dt
             circles[i].pos.z = -wallZ + r
-            velocities[i].z = abs(velocities[i].z) * bounceLoss
+            velocities[i].z = abs(velocities[i].z) * restitution
             last_normal_forces[i] = last_normal_forces[i] + vec(0, 0, normal_mag)
 
         if circles[i].pos.z + r > wallZ:
-            normal_mag = masses[i] * abs(velocities[i].z) * (1 + bounceLoss) / dt
+            normal_mag = masses[i] * abs(velocities[i].z) * (1 + restitution) / dt
             circles[i].pos.z = wallZ - r
-            velocities[i].z = -abs(velocities[i].z) * bounceLoss
+            velocities[i].z = -abs(velocities[i].z) * restitution
             last_normal_forces[i] = last_normal_forces[i] + vec(0, 0, -normal_mag)
 
     for a in range(len(circles)):
@@ -799,7 +823,7 @@ while True:
                 speed = dot(rel_vel, n)
 
                 if speed < 0:
-                    impulse = -(1 + bounceLoss) * speed
+                    impulse = -(1 + restitution) * speed
                     impulse = impulse / ((1 / masses[a]) + (1 / masses[b]))
 
                     if not fixed_nodes[a]:
@@ -857,7 +881,7 @@ while True:
                 speed_toward_spring = dot(velocities[n], push_dir)
 
                 if speed_toward_spring < 0:
-                    velocities[n] = velocities[n] - (1 + bounceLoss) * speed_toward_spring * push_dir
+                    velocities[n] = velocities[n] - (1 + restitution) * speed_toward_spring * push_dir
 
     manage_springs(False)
 
