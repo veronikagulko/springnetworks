@@ -685,46 +685,42 @@ while True:
     if len(circles) == 0:
         update_selected_force_view()
         continue
-
+# dont run if paused
     if not simulation_running:
         manage_springs(False)
-
         for i in range(len(circles)):
             velocities[i] = vec(0, 0, 0)
-
         update_selected_force_view()
         continue
 
     forces = []
-# this calculates how much KE we have lost previously
+# this calculates the fraction of speed retained after collisions
     restitution = sqrt(1 - collisionEnergyLoss)
-
+# reset all forces to 0
     for i in range(len(circles)):
         forces.append(vec(0, 0, 0))
         last_gravity_forces[i] = vec(0, 0, 0)
         last_normal_forces[i] = vec(0, 0, 0)
         last_spring_forces[i] = vec(0, 0, 0)
-
+#  applies gravity to non-stationary nodes
     if gravity_on:
         for i in range(len(circles)):
             if not fixed_nodes[i]:
                 Fg = vec(0, -g_strength * masses[i], 0)
                 forces[i] = forces[i] + Fg
                 last_gravity_forces[i] = Fg
-
+# calculate spring forces - pick 2 connected nodes
     for s_idx in range(len(springs)):
         i = springLinks[s_idx][0]
         j = springLinks[s_idx][1]
-
         L0 = spring_rest_lengths[s_idx]
         delta = circles[j].pos - circles[i].pos
         dist = mag(delta)
-
         if dist < 1e-9:
             continue
-
+# hooks law 
         f = k_spring * (dist - L0) * norm(delta)
-
+# newtons third law - equal and opposite forces at both endpoints
         if not fixed_nodes[i]:
             forces[i] = forces[i] + f
             last_spring_forces[i] = last_spring_forces[i] + f
@@ -740,14 +736,17 @@ while True:
         if fixed_nodes[i]:
             velocities[i] = vec(0, 0, 0)
             continue
-
+# for all moving nodes (v != 0), a = F / m
         accel = forces[i] / masses[i]
-
+# kinematics equations
+# v = vi + a*t * damping
+# x = x + v*dt
         velocities[i] = (velocities[i] + accel * dt) * damping
         circles[i].pos = circles[i].pos + velocities[i] * dt
 
         r = circles[i].radius
-
+# boundary colissions w/ border of the circle and the box
+# velocity is negated * restitution (to account for energy loss during collisions)
         if circles[i].pos.y - r < floorY:
             normal_mag = masses[i] * abs(velocities[i].y) * (1 + restitution) / dt
             circles[i].pos.y = floorY + r
@@ -783,21 +782,18 @@ while True:
             circles[i].pos.z = wallZ - r
             velocities[i].z = -abs(velocities[i].z) * restitution
             last_normal_forces[i] = last_normal_forces[i] + vec(0, 0, -normal_mag)
-
+# checks for node on node collisions (dist btwn nodes > radius * 2)
     for a in range(len(circles)):
         for b in range(a + 1, len(circles)):
             delta = circles[b].pos - circles[a].pos
             dist = mag(delta)
             min_dist = circles[a].radius + circles[b].radius
-
             if dist < 1e-9:
                 delta = vec(1, 0, 0)
                 dist = 1
-
             if dist < min_dist:
                 n = norm(delta)
                 overlap = min_dist - dist
-
                 if fixed_nodes[a] and fixed_nodes[b]:
                     continue
 
@@ -808,24 +804,24 @@ while True:
                 else:
                     circles[a].pos = circles[a].pos - n * (overlap / 2)
                     circles[b].pos = circles[b].pos + n * (overlap / 2)
-
+# measure the velocity along the collision direction
                 rel_vel = velocities[b] - velocities[a]
                 speed = dot(rel_vel, n)
-
+# if they are approaching each other, impulse = -(1+restitution) * speed
+# impulse = impulse / ((1 / masses[a])) + (1 / masses[b])
                 if speed < 0:
                     impulse = -(1 + restitution) * speed
                     impulse = impulse / ((1 / masses[a]) + (1 / masses[b]))
-
+# velocity = vi - norm(distance) * impulse / mass(a)
                     if not fixed_nodes[a]:
                         velocities[a] = velocities[a] - n * impulse / masses[a]
 
                     if not fixed_nodes[b]:
                         velocities[b] = velocities[b] + n * impulse / masses[b]
-
+# determine if nodes are colliding w springs
     for n in range(len(circles)):
         if fixed_nodes[n]:
             continue
-
         p = circles[n].pos
         node_r = circles[n].radius
 
@@ -835,7 +831,7 @@ while True:
 
             if n == a_idx or n == b_idx:
                 continue
-
+# find closest point on the spring to the node
             a = circles[a_idx].pos
             b = circles[b_idx].pos
             ab = b - a
@@ -854,7 +850,7 @@ while True:
             closest = a + ab * t
             delta = p - closest
             dist = mag(delta)
-
+# the node must be radius + spring clearane away 
             min_dist = node_r + springClearance
 
             if dist < 1e-9:
@@ -865,7 +861,8 @@ while True:
             if dist < min_dist:
                 push_dir = norm(delta)
                 overlap = min_dist - dist
-
+# if velocity points towards the spring and it is too close, the node is reflected to opposite side &
+# velocity is decreased by restitution
                 circles[n].pos = circles[n].pos + push_dir * overlap
 
                 speed_toward_spring = dot(velocities[n], push_dir)
@@ -878,7 +875,7 @@ while True:
     for i in range(len(circles)):
         show_arrow(grav_force_arrows[i], circles[i].pos, last_gravity_forces[i], forceScale, maxForceArrow)
         show_arrow(normal_force_arrows[i], circles[i].pos, last_normal_forces[i], forceScale, maxForceArrow)
-
+# the force view gets updated
     update_selected_force_view()
 
     time = time + dt
@@ -886,7 +883,7 @@ while True:
 
     if energy_counter >= ENERGY_PLOT_EVERY:
         energy_counter = 0
-
+# curves are updated w current values
         energies = compute_energies()
         kinetic_curve.plot(time, energies[0])
         potential_curve.plot(time, energies[1])
