@@ -55,15 +55,6 @@ maxForceArrow = 3.0
 maxSelectArrow = 3.5
 
 
-freeColor = color.black
-fixedColor = vector(1, 0.35, 0.1)
-selectedColor = color.red
-
-gravityColor = color.red
-springColor = color.black
-normalColor = color.blue
-totalColor = color.green
-
 # storage lists
 circles = []
 velocities = []
@@ -87,10 +78,10 @@ selectedNode = [None]
 
 def node_color(i):
     if selectedNode[0] == i:
-        return selectedColor
+        return color.red
     if fixed_nodes[i]:
-        return fixedColor
-    return freeColor
+        return vector(1, 0.35, 0.1)
+    return color.black
 
 def refresh_colors():
     for i in range(len(circles)):
@@ -152,11 +143,11 @@ def hide_spring_visual(spring_obj):
 
 def create_node_force_arrows(pos):
     grav_force_arrows.append(
-        arrow(canvas=scene, pos=pos, axis=vec(0, 0, 0), color=gravityColor, shaftwidth=0.08)
+        arrow(canvas=scene, pos=pos, axis=vec(0, 0, 0), color=color.red, shaftwidth=0.08)
     )
 
     normal_force_arrows.append(
-        arrow(canvas=scene, pos=pos, axis=vec(0, 0, 0), color=normalColor, shaftwidth=0.08)
+        arrow(canvas=scene, pos=pos, axis=vec(0, 0, 0), color=color.blue, shaftwidth=0.08)
     )
 
     last_gravity_forces.append(vec(0, 0, 0))
@@ -165,11 +156,11 @@ def create_node_force_arrows(pos):
 
 def create_spring_force_arrows(i, j):
     spring_force_arrows_a.append(
-        arrow(canvas=scene, pos=circles[i].pos, axis=vec(0, 0, 0), color=springColor, shaftwidth=0.07)
+        arrow(canvas=scene, pos=circles[i].pos, axis=vec(0, 0, 0), color=color.black, shaftwidth=0.07)
     )
 
     spring_force_arrows_b.append(
-        arrow(canvas=scene, pos=circles[j].pos, axis=vec(0, 0, 0), color=springColor, shaftwidth=0.07)
+        arrow(canvas=scene, pos=circles[j].pos, axis=vec(0, 0, 0), color=color.black, shaftwidth=0.07)
     )
 
 def rebuild_springs():
@@ -523,15 +514,15 @@ force_origin = sphere(
     color=color.red
 )
 
-sel_g_arrow = arrow(canvas=force_scene, pos=vec(0, 0.7, 0), axis=vec(0, 0, 0), color=gravityColor, shaftwidth=0.14)
-sel_s_arrow = arrow(canvas=force_scene, pos=vec(0, 0.7, 0), axis=vec(0, 0, 0), color=springColor, shaftwidth=0.14)
-sel_n_arrow = arrow(canvas=force_scene, pos=vec(0, 0.7, 0), axis=vec(0, 0, 0), color=normalColor, shaftwidth=0.14)
-sel_total_arrow = arrow(canvas=force_scene, pos=vec(0, 0.7, 0), axis=vec(0, 0, 0), color=totalColor, shaftwidth=0.16)
+sel_g_arrow = arrow(canvas=force_scene, pos=vec(0, 0.7, 0), axis=vec(0, 0, 0), color=color.red, shaftwidth=0.14)
+sel_s_arrow = arrow(canvas=force_scene, pos=vec(0, 0.7, 0), axis=vec(0, 0, 0), color=color.black, shaftwidth=0.14)
+sel_n_arrow = arrow(canvas=force_scene, pos=vec(0, 0.7, 0), axis=vec(0, 0, 0), color=color.blue, shaftwidth=0.14)
+sel_total_arrow = arrow(canvas=force_scene, pos=vec(0, 0.7, 0), axis=vec(0, 0, 0), color=color.green, shaftwidth=0.16)
 
-sel_g_label = label(canvas=force_scene, pos=vec(-5.4, -5.2, 0), text="", box=False, color=gravityColor)
-sel_s_label = label(canvas=force_scene, pos=vec(-2.0, -5.2, 0), text="", box=False, color=springColor)
-sel_n_label = label(canvas=force_scene, pos=vec(1.4, -5.2, 0), text="", box=False, color=normalColor)
-sel_total_label = label(canvas=force_scene, pos=vec(4.7, -5.2, 0), text="", box=False, color=totalColor)
+sel_g_label = label(canvas=force_scene, pos=vec(-5.4, -5.2, 0), text="", box=False, color=color.red)
+sel_s_label = label(canvas=force_scene, pos=vec(-2.0, -5.2, 0), text="", box=False, color=color.black)
+sel_n_label = label(canvas=force_scene, pos=vec(1.4, -5.2, 0), text="", box=False, color=color.blue)
+sel_total_label = label(canvas=force_scene, pos=vec(4.7, -5.2, 0), text="", box=False, color=color.green)
 
 def update_selected_force_view():
     if selectedNode[0] == None:
@@ -626,7 +617,7 @@ def on_mousedown(evt):
             canvas=scene,
             pos=pos,
             radius=r_new,
-            color=freeColor
+            color=color.black
         )
     )
 
