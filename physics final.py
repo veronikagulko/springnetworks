@@ -27,6 +27,9 @@ wallZ = 4.6
 floor_visual = box(canvas=scene, pos=vec(0, floorY - 0.03, 0), size=vec(2 * wallX, 0.06, 2 * wallZ), color=vector(0.85, 0.85, 0.85), opacity=0.35)
 bounds_frame = box(canvas=scene, pos=vec(0, 0, 0), size=vec(2 * wallX, ceilingY - floorY, 2 * wallZ), color=color.gray(0.6),opacity=0.08)
 
+floor_visual.pickable = False
+bounds_frame.pickable = False
+
 # simulation frame rate controls
 dt = 0.005
 time = 0
@@ -119,13 +122,14 @@ def hide_arrow(arr):
     arr.visible = False
 
 def create_node_force_arrows(pos):
-    grav_force_arrows.append(
-        arrow(canvas=scene, pos=pos, axis=vec(0, 0, 0), color=color.red, shaftwidth=0.08)
-    )
+    gravity_arrow = arrow(canvas=scene, pos=pos, axis=vec(0, 0, 0), color=color.red, shaftwidth=0.08)
+    normal_arrow = arrow(canvas=scene, pos=pos, axis=vec(0, 0, 0), color=color.blue, shaftwidth=0.08)
 
-    normal_force_arrows.append(
-        arrow(canvas=scene, pos=pos, axis=vec(0, 0, 0), color=color.blue, shaftwidth=0.08)
-    )
+    gravity_arrow.pickable = False
+    normal_arrow.pickable = False
+
+    grav_force_arrows.append(gravity_arrow)
+    normal_force_arrows.append(normal_arrow)
 
     last_gravity_forces.append(vec(0, 0, 0))
     last_normal_forces.append(vec(0, 0, 0))
@@ -170,36 +174,37 @@ def manage_springs(rebuild):
                 springLinks.append([i, j])
                 spring_rest_lengths.append(mag(circles[i].pos - circles[j].pos))
 
-                springs.append(
-                    cylinder(
-                        canvas=scene,
-                        pos=circles[i].pos,
-                        axis=circles[j].pos - circles[i].pos,
-                        radius=0.055,
-                        color=color.yellow,
-                        emissive=True
-                    )
+                spring_visual = cylinder(
+                    canvas=scene,
+                    pos=circles[i].pos,
+                    axis=circles[j].pos - circles[i].pos,
+                    radius=0.055,
+                    color=color.yellow,
+                    emissive=True
+                )
+                spring_visual.pickable = False
+                springs.append(spring_visual)
+
+                arrow_a = arrow(
+                    canvas=scene,
+                    pos=circles[i].pos,
+                    axis=vec(0, 0, 0),
+                    color=color.black,
+                    shaftwidth=0.07
                 )
 
-                spring_force_arrows_a.append(
-                    arrow(
-                        canvas=scene,
-                        pos=circles[i].pos,
-                        axis=vec(0, 0, 0),
-                        color=color.black,
-                        shaftwidth=0.07
-                    )
+                arrow_b = arrow(
+                    canvas=scene,
+                    pos=circles[j].pos,
+                    axis=vec(0, 0, 0),
+                    color=color.black,
+                    shaftwidth=0.07
                 )
 
-                spring_force_arrows_b.append(
-                    arrow(
-                        canvas=scene,
-                        pos=circles[j].pos,
-                        axis=vec(0, 0, 0),
-                        color=color.black,
-                        shaftwidth=0.07
-                    )
-                )
+                arrow_a.pickable = False
+                arrow_b.pickable = False
+                spring_force_arrows_a.append(arrow_a)
+                spring_force_arrows_b.append(arrow_b)
 
                 made = made + 1
 
@@ -586,16 +591,22 @@ potential_curve = gcurve(graph=energy_graph, color=color.blue, label="Potential"
 total_curve = gcurve(graph=energy_graph, color=color.black, label="Total")
 
 def on_mousedown(evt):
-    picked = scene.mouse.pick
+    click_pos = evt.pos
 
-    # Select an existing node without moving it.
+    # Prefer GlowScript object picking when the sphere itself was clicked.
+    picked = scene.mouse.pick
     if picked != None:
         for i in range(len(circles)):
             if picked == circles[i]:
                 select_node(i)
                 return
 
-    click_pos = evt.pos
+    # Fallback for cases where another visual overlaps the node.
+    for i in range(len(circles)):
+        if mag(click_pos - circles[i].pos) < circles[i].radius * 1.5:
+            select_node(i)
+            return
+
     pos = vec(click_pos.x, click_pos.y, place_z)
     r_new = visual_radius(default_mass)
 
